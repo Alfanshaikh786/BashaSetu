@@ -1,0 +1,57 @@
+name: bhasha_setu_flutter
+description: "Bhasha Setu (भाषा | SETU) — Bridging Tribal Languages | An Offline-First Translation & Pedagogical Android Platform"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Local Offline SQLite Database
+  sqflite: ^2.3.2
+  path_provider: ^2.1.2
+  path: ^1.9.0
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+
+  # Native Audio & Speech Processing
+  speech_to_text: ^6.6.1
+  flutter_tts: ^4.0.2
+
+  # On-Device Neural Document OCR
+  google_mlkit_text_recognition: ^0.13.0
+  image_picker: ^1.0.7
+
+  # Media & Subtitle Studio
+  video_player: ^2.8.2
+  file_picker: ^8.0.0
+
+  # Networking (Optional Edge Sync)
+  http: ^1.2.0
+
+  # Local Storage & Preferences
+  shared_preferences: ^2.2.2
+
+  # UI Micro-interactions & Icons
+  confetti: ^0.7.0
+  intl: ^0.19.0
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/database/translations.db
+    - assets/data/Santhali-Words.csv
+    - assets/fonts/
+    - assets/images/
