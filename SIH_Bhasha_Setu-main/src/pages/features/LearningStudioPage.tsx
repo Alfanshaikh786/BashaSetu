@@ -33,27 +33,47 @@ import {
   Play,
   Share2,
   Target,
-  Star
+  Star,
+  Zap,
+  UserCheck,
+  UserPlus,
+  Users,
+  BarChart3,
+  TrendingUp,
+  ArrowRight
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { SANTALI_DATASET, SantaliDatasetEntry } from '../../data/santaliDataset';
 import { playTextSpeech } from '../../services/translationService';
+import { 
+  getActiveStudent, 
+  setActiveStudent, 
+  getAllStudents, 
+  createStudent, 
+  getStudentProgress 
+} from '../../learning/storage';
+import { updateStudentMastery, getMasteryLabel, getMasteryState } from '../../learning/masteryEngine';
+import { generateAdaptiveWorksheet, AdaptiveGenerationResult } from '../../learning/adaptiveGenerator';
+import { generateValidatedMCQ, ValidatedMCQQuestion } from '../../learning/distractorValidator';
+import { getRecommendedNextActivity } from '../../learning/recommendationEngine';
+import { getTeacherAnalyticsSummary } from '../../learning/teacherAnalytics';
+import { StudentProfile, RecommendedActivity, TeacherAnalyticsSummary, FLNSkill, MasteryState } from '../../learning/types';
 
-type TabMode = 'flashcards' | 'worksheets' | 'assessment';
+type TabMode = 'flashcards' | 'worksheets' | 'assessment' | 'analytics';
 type WorksheetExerciseType = 'matching' | 'tracing' | 'scramble' | 'mcq';
 
 export const LearningStudioPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as TabMode | null;
   const [activeTab, setActiveTab] = useState<TabMode>(
-    tabParam === 'flashcards' || tabParam === 'assessment' || tabParam === 'worksheets' 
+    tabParam === 'flashcards' || tabParam === 'assessment' || tabParam === 'worksheets' || tabParam === 'analytics'
       ? tabParam 
       : 'flashcards'
   );
 
   useEffect(() => {
-    if (tabParam === 'flashcards' || tabParam === 'worksheets' || tabParam === 'assessment') {
+    if (tabParam === 'flashcards' || tabParam === 'worksheets' || tabParam === 'assessment' || tabParam === 'analytics') {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
@@ -118,8 +138,18 @@ export const LearningStudioPage: React.FC = () => {
   };
 
   // ==========================================
-  // 2. REVAMPED INTERACTIVE WORKSHEET STATE
+  // 2. REVAMPED ADAPTIVE WORKSHEET STATE
   // ==========================================
+  const [activeStudent, setActiveStudentState] = useState<StudentProfile>(() => getActiveStudent());
+  const [studentsList, setStudentsList] = useState<StudentProfile[]>(() => getAllStudents());
+  const [isAdaptiveMode, setIsAdaptiveMode] = useState<boolean>(false);
+  const [adaptiveInfo, setAdaptiveInfo] = useState<AdaptiveGenerationResult | null>(null);
+  const [recommendedNext, setRecommendedNext] = useState<RecommendedActivity | null>(null);
+  const [newStudentModalOpen, setNewStudentModalOpen] = useState(false);
+  const [newStudentName, setNewStudentName] = useState('');
+  const [newStudentGrade, setNewStudentGrade] = useState(2);
+  const [printMode, setPrintMode] = useState<'student' | 'teacher'>('student');
+
   const [worksheetViewMode, setWorksheetViewMode] = useState<'interactive' | 'printable'>('interactive');
   const [worksheetLang, setWorksheetLang] = useState<'eng' | 'hin'>('eng');
   const [worksheetCat, setWorksheetCat] = useState<string>('All');
@@ -151,25 +181,75 @@ export const LearningStudioPage: React.FC = () => {
 
   // Graded Result Modal State
   const [gradeModalOpen, setGradeModalOpen] = useState(false);
-  const [gradeScore, setGradeScore] = useState<{ score: number; total: number; percent: number; grade: string } | null>(null);
+  const [gradeScore, setGradeScore] = useState<{ 
+    score: number; 
+    total: number; 
+    percent: number; 
+    grade: string;
+    masteryScore?: number;
+    masteryState?: MasteryState;
+    skill?: FLNSkill;
+  } | null>(null);
 
-  // Generate new worksheet dataset
-  const generateNewWorksheet = () => {
-    let pool = SANTALI_DATASET;
-    if (worksheetCat !== 'All') {
-      pool = SANTALI_DATASET.filter(item => item.cat === worksheetCat);
+  // Compute teacher analytics summary whenever students or scores update
+  const analyticsSummary: TeacherAnalyticsSummary = useMemo(() => {
+    return getTeacherAnalyticsSummary();
+  }, [studentsList, activeStudent, activeTab, gradeScore]);
+
+  const handleCreateNewStudent = () => {
+    if (!newStudentName.trim()) return;
+    const created = createStudent(newStudentName.trim(), newStudentGrade);
+    const all = getAllStudents();
+    setStudentsList(all);
+    setActiveStudentState(created);
+    setActiveStudent(created);
+    setNewStudentName('');
+    setNewStudentGrade(2);
+    setNewStudentModalOpen(false);
+    confetti({ particleCount: 30, spread: 50, origin: { y: 0.7 } });
+  };
+
+  const handleAssignSupportWorksheet = (supportItem: TeacherAnalyticsSummary['studentsNeedingSupport'][0]) => {
+    const student = studentsList.find(s => s.studentId === supportItem.studentId);
+    if (student) {
+      setActiveStudentState(student);
+      setActiveStudent(student);
     }
-    if (pool.length < worksheetCount) pool = SANTALI_DATASET;
+    setWorksheetType(supportItem.recommendedActivity.activityType);
+    if (supportItem.weakTopic && supportItem.weakTopic !== 'General') {
+      setWorksheetCat(supportItem.weakTopic);
+    }
+    setIsAdaptiveMode(true);
+    handleTabChange('worksheets');
+  };
 
-    // Random sample
-    const shuffled = [...pool].sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, worksheetCount);
-    setWorksheetItems(selected);
+  // Generate new worksheet dataset (Adaptive or Standard)
+  const generateNewWorksheet = () => {
+    if (isAdaptiveMode) {
+      const adaptiveRes = generateAdaptiveWorksheet(activeStudent.studentId, worksheetCount, worksheetCat);
+      setAdaptiveInfo(adaptiveRes);
+      setWorksheetItems(adaptiveRes.items);
+      const answers = adaptiveRes.items.map(item => ({ id: item.id, sat: item.sat, roman: item.roman }))
+        .sort(() => 0.5 - Math.random());
+      setShuffledAnswers(answers);
+    } else {
+      setAdaptiveInfo(null);
+      let pool = SANTALI_DATASET;
+      if (worksheetCat !== 'All') {
+        pool = SANTALI_DATASET.filter(item => item.cat === worksheetCat);
+      }
+      if (pool.length < worksheetCount) pool = SANTALI_DATASET;
 
-    // Shuffled column B
-    const answers = selected.map(item => ({ id: item.id, sat: item.sat, roman: item.roman }))
-      .sort(() => 0.5 - Math.random());
-    setShuffledAnswers(answers);
+      // Random sample
+      const shuffled = [...pool].sort(() => 0.5 - Math.random());
+      const selected = shuffled.slice(0, worksheetCount);
+      setWorksheetItems(selected);
+
+      // Shuffled column B
+      const answers = selected.map(item => ({ id: item.id, sat: item.sat, roman: item.roman }))
+        .sort(() => 0.5 - Math.random());
+      setShuffledAnswers(answers);
+    }
 
     // Reset interactive states
     setSelectedColA(null);
@@ -182,7 +262,7 @@ export const LearningStudioPage: React.FC = () => {
 
   useEffect(() => {
     generateNewWorksheet();
-  }, [worksheetCat, worksheetCount, worksheetType, worksheetLang]);
+  }, [worksheetCat, worksheetCount, worksheetType, worksheetLang, isAdaptiveMode, activeStudent.studentId]);
 
   // Handle Matching Selection
   const handleSelectColA = (id: string) => {
@@ -339,7 +419,7 @@ export const LearningStudioPage: React.FC = () => {
     link.click();
   };
 
-  // Grade & Submit Worksheet
+  // Grade & Submit Worksheet with Adaptive Mastery Persistence
   const handleGradeWorksheet = () => {
     let score = 0;
     const total = worksheetItems.length;
@@ -361,15 +441,45 @@ export const LearningStudioPage: React.FC = () => {
     if (percent < 50) grade = 'Needs Practice';
     else if (percent < 80) grade = 'B (Good Effort)';
 
-    setGradeScore({ score, total, percent, grade });
+    // Map activity to FLN skill
+    let skillId: FLNSkill = 'vocabulary';
+    if (worksheetType === 'tracing') skillId = 'script_recognition';
+    else if (worksheetType === 'scramble') skillId = 'sentence_building';
+    else if (worksheetType === 'mcq') skillId = 'reading';
+
+    const currentTopic = worksheetCat === 'All' ? (worksheetItems[0]?.cat || 'General') : worksheetCat;
+    const progress = updateStudentMastery(
+      activeStudent.studentId,
+      skillId,
+      currentTopic,
+      score,
+      total,
+      worksheetType
+    );
+
+    const nextRec = getRecommendedNextActivity(activeStudent.studentId, worksheetType, percent);
+    setRecommendedNext(nextRec);
+
+    setGradeScore({ 
+      score, 
+      total, 
+      percent, 
+      grade,
+      masteryScore: progress.masteryScore,
+      masteryState: getMasteryState(progress.masteryScore),
+      skill: skillId
+    });
     setGradeModalOpen(true);
     if (percent >= 60) {
       confetti({ particleCount: 70, spread: 80, origin: { y: 0.6 } });
     }
   };
 
-  const handlePrintWorksheet = () => {
-    window.print();
+  const handlePrintWorksheet = (mode: 'student' | 'teacher' = 'student') => {
+    setPrintMode(mode);
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   // ==========================================
@@ -512,6 +622,18 @@ export const LearningStudioPage: React.FC = () => {
             >
               <Target className="w-4 h-4 text-[#249144]" />
               <span>Quiz and Assessment</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('analytics')}
+              className={`flex-1 min-w-[140px] py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                activeTab === 'analytics'
+                  ? 'bg-white text-[#14532d] shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              }`}
+            >
+              <GraduationCap className="w-4 h-4 text-[#249144]" />
+              <span>Teacher Analytics</span>
             </button>
           </div>
         </div>
@@ -793,15 +915,104 @@ export const LearningStudioPage: React.FC = () => {
                     <span>Shuffle Set</span>
                   </button>
 
+                  {worksheetViewMode === 'printable' ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handlePrintWorksheet('student')}
+                        className="px-3.5 py-2 bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                        title="Print clean test paper for students without answers"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Print Student Sheet</span>
+                      </button>
+                      <button
+                        onClick={() => handlePrintWorksheet('teacher')}
+                        className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                        title="Print teacher sheet with answer key"
+                      >
+                        <Lightbulb className="w-3.5 h-3.5" />
+                        <span>Print Teacher Key</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handlePrintWorksheet('student')}
+                      className="px-4 py-2 bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Print / PDF</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Student Profile & Adaptive Engine Header Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#14532d] flex items-center justify-center font-bold text-xs">
+                    <UserCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Active Student</span>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={activeStudent.studentId}
+                        onChange={(e) => {
+                          const found = studentsList.find(s => s.studentId === e.target.value);
+                          if (found) {
+                            setActiveStudent(found);
+                            setActiveStudentState(found);
+                          }
+                        }}
+                        className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-800 outline-none hover:border-[#249144] cursor-pointer"
+                      >
+                        {studentsList.map(s => (
+                          <option key={s.studentId} value={s.studentId}>
+                            {s.name} (Grade {s.grade})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => setNewStudentModalOpen(true)}
+                        className="p-1.5 text-slate-500 hover:text-[#249144] hover:bg-white rounded-lg transition"
+                        title="Add Student Profile"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Adaptive Mode Toggle */}
+                <div className="flex items-center gap-2.5">
                   <button
-                    onClick={handlePrintWorksheet}
-                    className="px-4 py-2 bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold rounded-xl shadow-md flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+                    onClick={() => setIsAdaptiveMode(prev => !prev)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer border ${
+                      isAdaptiveMode
+                        ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-2xs'
+                        : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+                    }`}
                   >
-                    <Printer className="w-3.5 h-3.5" />
-                    <span>Print / PDF</span>
+                    <Zap className={`w-3.5 h-3.5 ${isAdaptiveMode ? 'text-amber-600 fill-amber-500' : 'text-slate-400'}`} />
+                    <span>Adaptive Mode: {isAdaptiveMode ? 'ON' : 'OFF'}</span>
                   </button>
                 </div>
               </div>
+
+              {/* Adaptive Diagnostics Banner */}
+              {isAdaptiveMode && adaptiveInfo && (
+                <div className="bg-amber-50/80 border border-amber-200 p-3 rounded-2xl flex items-center justify-between text-xs text-amber-950 gap-3 animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <span>
+                      <strong>Adaptive Engine Active:</strong> {adaptiveInfo.reason}
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-white border border-amber-200 text-[10px] font-bold flex-shrink-0">
+                    Difficulty {adaptiveInfo.targetDifficulty}
+                  </span>
+                </div>
+              )}
 
               {/* Customizer Filters Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -1280,11 +1491,8 @@ export const LearningStudioPage: React.FC = () => {
                     <div className="space-y-4">
                       {worksheetItems.map((item, idx) => {
                         const selected = mcqUserAnswers[item.id];
-                        const distractors = SANTALI_DATASET
-                          .filter(d => d.id !== item.id)
-                          .slice(0, 3)
-                          .map(d => d.sat);
-                        const options = [item.sat, ...distractors].sort();
+                        const validated = generateValidatedMCQ(item, SANTALI_DATASET, worksheetLang);
+                        const options = validated.options;
 
                         return (
                           <div key={item.id} className="p-5 rounded-2xl bg-slate-50/70 border border-slate-200 space-y-3">
@@ -1356,12 +1564,12 @@ export const LearningStudioPage: React.FC = () => {
             {worksheetViewMode === 'printable' && (
               <div className="bg-white rounded-3xl border border-slate-200 p-8 sm:p-12 shadow-xl space-y-8 print:border-none print:shadow-none print:p-4 print:rounded-none max-w-4xl mx-auto">
                 
-                {/* Official Ministry Header */}
+                {/* Official Header */}
                 <div className="border-b-2 border-slate-800 pb-6 space-y-2 text-center">
                   <div className="flex items-center justify-between text-xs text-slate-400 font-semibold mb-2">
-                    <span>GOVERNMENT OF INDIA</span>
-                    <span>MINISTRY OF TRIBAL AFFAIRS</span>
-                    <span>BHASHA SETU LINGUISTIC PORTAL</span>
+                    <span>BHASHA SETU</span>
+                    <span>TRIBAL LANGUAGE WORKSHEET</span>
+                    <span>{printMode === 'teacher' ? 'TEACHER ANSWER KEY' : 'STUDENT COPY'}</span>
                   </div>
                   <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 domine-bold tracking-tight">
                     Santali Language Classroom Activity Sheet
@@ -1418,10 +1626,13 @@ export const LearningStudioPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Teacher Answer Key Toggle */}
+                {/* Teacher Answer Key Toggle & Box (Omitted completely from DOM when printing student copy) */}
                 <div className="pt-6 border-t border-slate-100 flex items-center justify-between print:hidden">
                   <button
-                    onClick={() => setShowAnswerKey(!showAnswerKey)}
+                    onClick={() => {
+                      setShowAnswerKey(!showAnswerKey);
+                      setPrintMode(!showAnswerKey ? 'teacher' : 'student');
+                    }}
                     className={`px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
                       showAnswerKey ? 'bg-amber-50 text-amber-900 border-amber-300' : 'bg-white text-slate-600 border-slate-200'
                     }`}
@@ -1431,7 +1642,7 @@ export const LearningStudioPage: React.FC = () => {
                   </button>
                 </div>
 
-                {showAnswerKey && (
+                {showAnswerKey && printMode === 'teacher' && (
                   <div className="border-t-2 border-dashed border-amber-400 pt-6 space-y-3 bg-amber-50/60 p-6 rounded-2xl">
                     <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
                       <Lightbulb className="w-4 h-4 text-amber-600" />
@@ -1465,7 +1676,7 @@ export const LearningStudioPage: React.FC = () => {
 
                   <div className="space-y-1">
                     <h3 className="text-2xl font-bold text-slate-900 domine-bold">Worksheet Evaluated!</h3>
-                    <p className="text-xs text-slate-500">Student linguistic performance report</p>
+                    <p className="text-xs text-slate-500">Student linguistic performance report for {activeStudent.name}</p>
                   </div>
 
                   <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 grid grid-cols-3 gap-2 text-center">
@@ -1483,11 +1694,68 @@ export const LearningStudioPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Adaptive Mastery Indicator */}
+                  {gradeScore.masteryScore !== undefined && gradeScore.masteryState && (
+                    <div className="bg-emerald-50/50 p-3.5 rounded-2xl border border-emerald-100 flex items-center justify-between text-xs">
+                      <div className="text-left">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                          Skill: {gradeScore.skill || 'vocabulary'}
+                        </span>
+                        <span className="font-extrabold text-[#14532d]">
+                          Updated Mastery: {gradeScore.masteryScore}%
+                        </span>
+                      </div>
+                      <span 
+                        className="px-2.5 py-1 rounded-full text-xs font-bold"
+                        style={{
+                          backgroundColor: getMasteryLabel(gradeScore.masteryState).bg,
+                          color: getMasteryLabel(gradeScore.masteryState).color
+                        }}
+                      >
+                        {getMasteryLabel(gradeScore.masteryState).label}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Evidence-Based Next Activity Recommendation */}
+                  {recommendedNext && (
+                    <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200 text-left space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+                          <Sparkles className="w-3.5 h-3.5 text-[#249144]" /> Recommended Next Step
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-[#14532d]">
+                          Difficulty {recommendedNext.difficulty}
+                        </span>
+                      </div>
+                      <p className="text-xs font-bold text-slate-900">
+                        {recommendedNext.activityType === 'matching' ? 'Match the Pairs' :
+                         recommendedNext.activityType === 'tracing' ? 'Ol Chiki Tracing Pad' :
+                         recommendedNext.activityType === 'scramble' ? 'Sentence Builder' : 'MCQ Assessment'}: {recommendedNext.topic}
+                      </p>
+                      <p className="text-[11px] text-slate-600 leading-snug">
+                        {recommendedNext.reason}
+                      </p>
+                      <button
+                        onClick={() => {
+                          setWorksheetType(recommendedNext.activityType);
+                          setWorksheetCat(recommendedNext.topic);
+                          setGradeModalOpen(false);
+                          generateNewWorksheet();
+                        }}
+                        className="w-full py-2 bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                        <span>Start Recommended Practice</span>
+                      </button>
+                    </div>
+                  )}
+
                   <button
                     onClick={() => setGradeModalOpen(false)}
-                    className="w-full py-3 bg-[#249144] hover:bg-[#1a7536] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition cursor-pointer"
+                    className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
                   >
-                    Continue Practicing
+                    Close Report
                   </button>
                 </div>
               </div>
@@ -1829,6 +2097,421 @@ export const LearningStudioPage: React.FC = () => {
 
               </div>
             )}
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* 4. TEACHER ANALYTICS & COHORT DASHBOARD   */}
+        {/* ========================================== */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-8 animate-in fade-in duration-200">
+            {/* Header / Intro Card */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-[#14532d]">
+                  <BarChart3 className="w-3.5 h-3.5 text-[#249144]" />
+                  <span>FLN Cohort Telemetry • 100% Offline-First</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 domine-bold">
+                  Teacher Analytics & Competency Matrix
+                </h2>
+                <p className="text-slate-600 text-sm max-w-2xl">
+                  Automated skill diagnostics, cohort mastery averages, and targeted intervention triggers across Foundational Literacy & Numeracy competencies in Santali (Ol Chiki).
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <button
+                  onClick={() => setNewStudentModalOpen(true)}
+                  className="px-5 py-3 rounded-2xl bg-[#249144] hover:bg-[#1a7536] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-md transition active:scale-95 cursor-pointer"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Add Student Profile</span>
+                </button>
+              </div>
+            </div>
+
+            {/* FLN Domain Mastery Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {/* Literacy */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4 hover:border-emerald-300 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">FLN Literacy</span>
+                  <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-[#249144] flex items-center justify-center">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-extrabold text-slate-900">{analyticsSummary.domainMastery.literacy}%</span>
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                      {analyticsSummary.domainMastery.literacy >= 70 ? 'Proficient' : 'Developing'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Reading, sentence building, phonics</p>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-[#249144] h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${analyticsSummary.domainMastery.literacy}%` }} 
+                  />
+                </div>
+              </div>
+
+              {/* Numeracy */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4 hover:border-blue-300 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">FLN Numeracy</span>
+                  <div className="w-9 h-9 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <Target className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-extrabold text-slate-900">{analyticsSummary.domainMastery.numeracy}%</span>
+                    <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                      {analyticsSummary.domainMastery.numeracy >= 70 ? 'Proficient' : 'Developing'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Counting, quantities, numerals</p>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-blue-600 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${analyticsSummary.domainMastery.numeracy}%` }} 
+                  />
+                </div>
+              </div>
+
+              {/* Vocabulary */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4 hover:border-amber-300 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vocabulary</span>
+                  <div className="w-9 h-9 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-extrabold text-slate-900">{analyticsSummary.domainMastery.vocabulary}%</span>
+                    <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                      {analyticsSummary.domainMastery.vocabulary >= 70 ? 'Proficient' : 'Developing'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Tribal terms in classroom & nature</p>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-amber-500 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${analyticsSummary.domainMastery.vocabulary}%` }} 
+                  />
+                </div>
+              </div>
+
+              {/* Ol Chiki Script */}
+              <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4 hover:border-purple-300 transition">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ol Chiki Script</span>
+                  <div className="w-9 h-9 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                    <PenTool className="w-4 h-4" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-extrabold text-slate-900">{analyticsSummary.domainMastery.ol_chiki}%</span>
+                    <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
+                      {analyticsSummary.domainMastery.ol_chiki >= 70 ? 'Proficient' : 'Developing'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Letter recognition & stroke tracing</p>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-purple-600 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${analyticsSummary.domainMastery.ol_chiki}%` }} 
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Priority Targeted Interventions */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <AlertCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">Targeted Interventions: Priority Support Queue</h3>
+                    <p className="text-xs text-slate-500">Learners requiring reinforcement on specific FLN competencies (&lt; 60% mastery)</p>
+                  </div>
+                </div>
+
+                <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                  {analyticsSummary.studentsNeedingSupport.length} Action Needed
+                </span>
+              </div>
+
+              {analyticsSummary.studentsNeedingSupport.length === 0 ? (
+                <div className="p-8 rounded-2xl bg-emerald-50/50 border border-emerald-200 text-center space-y-3">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
+                  <h4 className="text-base font-bold text-[#14532d]">All Cohort Learners Are on Track!</h4>
+                  <p className="text-xs text-emerald-800 max-w-md mx-auto">
+                    Every student in the cohort is currently performing at Developing or Proficient mastery levels across evaluated competencies.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {analyticsSummary.studentsNeedingSupport.map((item, idx) => (
+                    <div 
+                      key={idx}
+                      className="p-5 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/40 via-white to-orange-50/20 space-y-4 hover:border-amber-300 transition"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm">
+                            {item.studentName.charAt(0)}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900">{item.studentName}</h4>
+                            <p className="text-[11px] text-slate-500">Learner ID: {item.studentId}</p>
+                          </div>
+                        </div>
+
+                        <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full capitalize">
+                          {item.weakSkill.replace('_', ' ')}
+                        </span>
+                      </div>
+
+                      {/* Mastery Bar */}
+                      <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-100">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-600">Focus Topic: <strong>{item.weakTopic}</strong></span>
+                          <span className="font-bold text-amber-700">
+                            {item.masteryScore}% ({getMasteryLabel(getMasteryState(item.masteryScore)).label})
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div 
+                            className="bg-amber-500 h-full rounded-full" 
+                            style={{ width: `${item.masteryScore}%` }} 
+                          />
+                        </div>
+                      </div>
+
+                      {/* Recommended Action Card */}
+                      <div className="bg-white/80 p-3 rounded-xl border border-amber-100/80 text-xs text-slate-600 space-y-1">
+                        <div className="flex items-center gap-1.5 text-amber-800 font-bold">
+                          <Lightbulb className="w-3.5 h-3.5" />
+                          <span>Recommended Intervention:</span>
+                        </div>
+                        <p>{item.recommendedActivity.reason}</p>
+                      </div>
+
+                      {/* Action Button */}
+                      <button
+                        onClick={() => handleAssignSupportWorksheet(item)}
+                        className="w-full py-2.5 px-4 rounded-xl bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition active:scale-98 cursor-pointer"
+                      >
+                        <span>Assign & Launch Adaptive Worksheet</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Enrolled Student Cohort Roster */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#249144] flex items-center justify-center">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">Enrolled Student Roster</h3>
+                    <p className="text-xs text-slate-500">Manage individual student records and localized progress on this device</p>
+                  </div>
+                </div>
+
+                <span className="text-xs font-bold text-[#14532d] bg-green-50 px-3 py-1 rounded-full border border-green-200">
+                  {studentsList.length} Students Registered
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {studentsList.map((student) => {
+                  const isActive = student.studentId === activeStudent.studentId;
+                  const progressRecords = getStudentProgress(student.studentId);
+                  const totalAttempts = progressRecords.reduce((acc, r) => acc + r.attempts, 0);
+                  const avgAccuracy = progressRecords.length > 0
+                    ? Math.round(progressRecords.reduce((acc, r) => acc + r.accuracy, 0) / progressRecords.length)
+                    : 0;
+
+                  return (
+                    <div 
+                      key={student.studentId}
+                      className={`p-5 rounded-2xl border transition space-y-4 ${
+                        isActive 
+                          ? 'border-[#249144] bg-emerald-50/20 shadow-xs' 
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
+                            isActive ? 'bg-[#249144] text-white' : 'bg-slate-100 text-slate-700'
+                          }`}>
+                            {student.name.charAt(0)}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900">{student.name}</h4>
+                            <p className="text-[11px] text-slate-500">Grade {student.grade} • Santali (Ol Chiki)</p>
+                          </div>
+                        </div>
+
+                        {isActive && (
+                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3" />
+                            Active
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl text-center text-xs">
+                        <div>
+                          <span className="text-slate-400 block text-[10px] font-bold uppercase">Exercises</span>
+                          <span className="font-bold text-slate-800">{totalAttempts}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[10px] font-bold uppercase">Avg Accuracy</span>
+                          <span className="font-bold text-[#249144]">{avgAccuracy}%</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1">
+                        {!isActive ? (
+                          <button
+                            onClick={() => {
+                              setActiveStudentState(student);
+                              setActiveStudent(student);
+                            }}
+                            className="flex-1 py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer"
+                          >
+                            Set Active
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setIsAdaptiveMode(true);
+                              handleTabChange('worksheets');
+                            }}
+                            className="flex-1 py-2 px-3 rounded-xl bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <Zap className="w-3.5 h-3.5" />
+                            <span>Launch Adaptive</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* ADD NEW STUDENT PROFILE MODAL              */}
+        {/* ========================================== */}
+        {newStudentModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 sm:p-8 space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#249144] flex items-center justify-center">
+                    <UserPlus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Register New Learner</h3>
+                    <p className="text-xs text-slate-500">Offline student profile for adaptive learning</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setNewStudentModalOpen(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Student Full Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newStudentName}
+                    onChange={(e) => setNewStudentName(e.target.value)}
+                    placeholder="e.g. Birsa Soren"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-900 outline-none focus:border-[#249144] focus:ring-2 focus:ring-emerald-100 transition"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Primary Grade Level
+                  </label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {[1, 2, 3, 4, 5].map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setNewStudentGrade(g)}
+                        className={`py-2.5 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                          newStudentGrade === g
+                            ? 'bg-[#249144] text-white border-[#249144] shadow-xs'
+                            : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                        }`}
+                      >
+                        Grade {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-100 text-xs text-emerald-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#249144]" />
+                    <span>Language & Script Configuration</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800">
+                    Default: <strong>Santali (Ol Chiki)</strong>. Skill progress will be stored offline on this device.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setNewStudentModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateNewStudent}
+                  disabled={!newStudentName.trim()}
+                  className="px-6 py-2.5 rounded-xl bg-[#249144] hover:bg-[#1a7536] disabled:opacity-50 text-white text-xs font-bold shadow-md transition active:scale-95 cursor-pointer"
+                >
+                  Create Learner Profile
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
