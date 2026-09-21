@@ -1,31 +1,90 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, Component, ErrorInfo } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Navbar } from './components/layout/Navbar';
-import { Footer } from './components/layout/Footer';
 import { ScrollToTop } from './components/common/ScrollToTop';
 import { PWAInstallPrompt } from './components/common/PWAInstallPrompt';
 
 // Eager load HomePage for instantaneous initial landing render
 import { HomePage } from './pages/HomePage';
 
-// Lazy load feature and resource routes to cleanly isolate heavy bundles
-const TextToTextPage = lazy(() => import('./pages/features/TextToTextPage').then(m => ({ default: m.TextToTextPage })));
-const OCRPage = lazy(() => import('./pages/features/OCRPage').then(m => ({ default: m.OCRPage })));
-const SpeechToTextPage = lazy(() => import('./pages/features/SpeechToTextPage').then(m => ({ default: m.SpeechToTextPage })));
-const SpeechToSpeechPage = lazy(() => import('./pages/features/SpeechToSpeechPage').then(m => ({ default: m.SpeechToSpeechPage })));
-const TextToSpeechPage = lazy(() => import('./pages/features/TextToSpeechPage').then(m => ({ default: m.TextToSpeechPage })));
-const VideoSubtitlePage = lazy(() => import('./pages/features/VideoSubtitlePage').then(m => ({ default: m.VideoSubtitlePage })));
-const LearningStudioPage = lazy(() => import('./pages/features/LearningStudioPage').then(m => ({ default: m.LearningStudioPage })));
-const DictionaryPage = lazy(() => import('./pages/resources/DictionaryPage').then(m => ({ default: m.DictionaryPage })));
-const FieldModePage = lazy(() => import('./pages/features/FieldModePage').then(m => ({ default: m.FieldModePage })));
-const TeacherModePage = lazy(() => import('./pages/features/TeacherModePage').then(m => ({ default: m.TeacherModePage })));
-const KnowledgeBasePage = lazy(() => import('./pages/resources/KnowledgeBasePage').then(m => ({ default: m.KnowledgeBasePage })));
-const EmergencyModePage = lazy(() => import('./pages/features/EmergencyModePage').then(m => ({ default: m.EmergencyModePage })));
-const AboutPage = lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
-const ContactPage = lazy(() => import('./pages/ContactPage').then(m => ({ default: m.ContactPage })));
-const VaaniStreamPage = lazy(() => import('./pages/VaaniStreamPage').then(m => ({ default: m.VaaniStreamPage })));
-const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
-const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
+/** Helper to retry dynamic chunk imports if a stale hash or transient network drop occurs */
+function lazyWithRetry<T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+): React.LazyExoticComponent<T> {
+  return lazy(async () => {
+    try {
+      return await factory();
+    } catch (error) {
+      console.warn('Lazy chunk load failed, retrying once...', error);
+      const hasReloaded = sessionStorage.getItem('chunk_load_reload');
+      if (!hasReloaded) {
+        sessionStorage.setItem('chunk_load_reload', 'true');
+        window.location.reload();
+      }
+      throw error;
+    }
+  });
+}
+
+// Lazy load feature and resource routes with automatic retry to prevent blank screens
+const TextToTextPage = lazyWithRetry(() => import('./pages/features/TextToTextPage').then(m => ({ default: m.TextToTextPage })));
+const OCRPage = lazyWithRetry(() => import('./pages/features/OCRPage').then(m => ({ default: m.OCRPage })));
+const SpeechToTextPage = lazyWithRetry(() => import('./pages/features/SpeechToTextPage').then(m => ({ default: m.SpeechToTextPage })));
+const SpeechToSpeechPage = lazyWithRetry(() => import('./pages/features/SpeechToSpeechPage').then(m => ({ default: m.SpeechToSpeechPage })));
+const TextToSpeechPage = lazyWithRetry(() => import('./pages/features/TextToSpeechPage').then(m => ({ default: m.TextToSpeechPage })));
+const VideoSubtitlePage = lazyWithRetry(() => import('./pages/features/VideoSubtitlePage').then(m => ({ default: m.VideoSubtitlePage })));
+const LearningStudioPage = lazyWithRetry(() => import('./pages/features/LearningStudioPage').then(m => ({ default: m.LearningStudioPage })));
+const DictionaryPage = lazyWithRetry(() => import('./pages/resources/DictionaryPage').then(m => ({ default: m.DictionaryPage })));
+const FieldModePage = lazyWithRetry(() => import('./pages/features/FieldModePage').then(m => ({ default: m.FieldModePage })));
+const TeacherModePage = lazyWithRetry(() => import('./pages/features/TeacherModePage').then(m => ({ default: m.TeacherModePage })));
+const KnowledgeBasePage = lazyWithRetry(() => import('./pages/resources/KnowledgeBasePage').then(m => ({ default: m.KnowledgeBasePage })));
+const EmergencyModePage = lazyWithRetry(() => import('./pages/features/EmergencyModePage').then(m => ({ default: m.EmergencyModePage })));
+const AboutPage = lazyWithRetry(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
+const ContactPage = lazyWithRetry(() => import('./pages/ContactPage').then(m => ({ default: m.ContactPage })));
+const VaaniStreamPage = lazyWithRetry(() => import('./pages/VaaniStreamPage').then(m => ({ default: m.VaaniStreamPage })));
+const PrivacyPolicyPage = lazyWithRetry(() => import('./pages/PrivacyPolicyPage').then(m => ({ default: m.PrivacyPolicyPage })));
+const LoginPage = lazyWithRetry(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+}
+
+class AppErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Bhasha Setu loading error caught by AppErrorBoundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-[#F8FBF7]">
+          <div className="max-w-md bg-white p-8 rounded-2xl border border-[#D5E8D5] shadow-lg space-y-4">
+            <h2 className="text-xl font-bold text-[#17212B]">Unable to load application</h2>
+            <p className="text-sm text-[#667085]">
+              A network glitch or cached update prevented this page from loading properly.
+            </p>
+            <button
+              onClick={() => {
+                sessionStorage.removeItem('chunk_load_reload');
+                window.location.reload();
+              }}
+              className="px-6 py-2.5 bg-[#238B45] text-white rounded-xl font-semibold hover:bg-[#1b6b35] transition cursor-pointer"
+            >
+              Refresh Application
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const PageLoadingFallback: React.FC = () => (
   <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center" aria-live="polite">
@@ -42,13 +101,17 @@ const WithNavbar: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <div className="flex-1 flex flex-col">
       {children}
     </div>
-    <Footer />
   </div>
 );
 
 export const App: React.FC = () => {
+  React.useEffect(() => {
+    // Clear chunk reload guard once app has successfully rendered
+    sessionStorage.removeItem('chunk_load_reload');
+  }, []);
+
   return (
-    <>
+    <AppErrorBoundary>
       <ScrollToTop />
       <PWAInstallPrompt />
       <Suspense fallback={<PageLoadingFallback />}>
@@ -115,7 +178,7 @@ export const App: React.FC = () => {
 
         </Routes>
       </Suspense>
-    </>
+    </AppErrorBoundary>
   );
 };
 

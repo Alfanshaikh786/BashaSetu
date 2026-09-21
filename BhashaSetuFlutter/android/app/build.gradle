@@ -43,7 +43,7 @@ android {
     defaultConfig {
         applicationId "org.bhashasetu.app"
         // MinSdk 21 satisfies speech_to_text, flutter_tts, google_mlkit_text_recognition, and sqflite
-        minSdkVersion 21
+        minSdkVersion flutter.minSdkVersion
         targetSdkVersion 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName

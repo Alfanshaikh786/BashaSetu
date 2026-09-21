@@ -43,7 +43,7 @@ class AsrService {
 
     await _speech.listen(
       localeId: localeId,
-      listenMode: ListenMode.dictation,
+      listenOptions: SpeechListenOptions(listenMode: ListenMode.dictation),
       onResult: (result) {
         onResult(
           result.recognizedWords,

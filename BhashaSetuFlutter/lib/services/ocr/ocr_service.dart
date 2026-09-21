@@ -14,7 +14,7 @@ class OcrService {
 
   void _ensureInitialized() {
     _recognizerLatin ??= TextRecognizer(script: TextRecognitionScript.latin);
-    _recognizerDevanagari ??= TextRecognizer(script: TextRecognitionScript.devanagari);
+    _recognizerDevanagari ??= TextRecognizer(script: TextRecognitionScript.devanagiri);
   }
 
   /// Recognizes text from image file and translates it

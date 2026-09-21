@@ -92,11 +92,11 @@ class AppNavbar extends StatelessWidget implements PreferredSizeWidget {
                           ],
                         ),
                         const Text(
-                          "BRIDGING TRIBAL LANGUAGES",
+                          "BRIDGING TRIBAL LANGUAGES | A TRANSLATOR FOR MIGRANT TEACHERS",
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 7,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: 0.8,
+                            letterSpacing: 0.6,
                             color: AppColors.textSecondary,
                           ),
                         ),
@@ -122,13 +122,42 @@ class AppNavbar extends StatelessWidget implements PreferredSizeWidget {
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Text(
+                          "Download App",
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(width: 4),
+                        Icon(Icons.arrow_forward_rounded, size: 12),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Login Button
+                  OutlinedButton(
+                    onPressed: onLoginTap ?? () {
+                      Navigator.pushNamed(context, '/login');
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      side: const BorderSide(color: AppColors.border),
+                      foregroundColor: AppColors.textPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                     child: const Text(
-                      "Install App",
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      "Login",
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
                     ),
                   ),
                   const SizedBox(width: 8),

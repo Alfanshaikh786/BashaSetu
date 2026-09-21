@@ -39,6 +39,7 @@ class S2SStateMachine {
   bool get isIdle => _currentState == S2SState.idle;
   bool get isListening => _currentState == S2SState.listening;
   bool get isPlaying => _currentState == S2SState.playing;
+  bool get isSpeaking => isPlaying;
 
   /// Transition to new state if valid
   bool transition(S2SState nextState) {

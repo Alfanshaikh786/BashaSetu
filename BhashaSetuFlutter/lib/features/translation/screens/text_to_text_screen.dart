@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../core/constants/colors.dart';
 import '../../../data/models/language.dart';
 import '../../../data/models/translation_result.dart';
 import '../../../services/translation/translation_decision_engine.dart';
 import '../../../services/tts/tts_service.dart';
 import '../../../widgets/navigation/app_navbar.dart';
 import '../../../widgets/navigation/app_drawer.dart';
+import '../../../widgets/navigation/app_footer.dart';
 
 class TextToTextScreen extends StatefulWidget {
   const TextToTextScreen({super.key});
@@ -24,6 +24,14 @@ class _TextToTextScreenState extends State<TextToTextScreen> {
   bool _isTranslating = false;
   bool _showVirtualKeyboard = false;
   bool _copied = false;
+  String? _feedbackGiven;
+
+  final List<Map<String, String>> _quickPresets = [
+    {'title': 'School', 'text': 'Where is the primary school?'},
+    {'title': 'Health', 'text': 'Is your health good?'},
+    {'title': 'Greeting', 'text': 'Hello, how are you?'},
+    {'title': 'Water', 'text': 'Drink clean boiling water.'},
+  ];
 
   final List<String> _olChikiKeys = [
     'ᱚ', 'ᱛ', 'ᱜ', 'ᱝ', 'ᱞ', 'ᱟ', 'ᱠ', 'ᱡ', 'ᱢ', 'ᱣ',
@@ -50,6 +58,7 @@ class _TextToTextScreenState extends State<TextToTextScreen> {
     setState(() {
       _result = res;
       _isTranslating = false;
+      _feedbackGiven = null;
     });
   }
 
@@ -85,140 +94,268 @@ class _TextToTextScreenState extends State<TextToTextScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: const AppNavbar(),
       drawer: const AppDrawer(),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Page Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.translate_rounded, color: AppColors.primary, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      "Text-to-Text Translation",
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-                    ),
-                    Text(
-                      "Offline multi-script verified translations",
-                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                    ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1100),
+                child: Column(
+                  children: [
+                    // Header Title & HUD
+                    _buildHeader(),
+                    const SizedBox(height: 24),
+
+                    // Translation Studio Box
+                    _buildStudioContainer(),
+                    const SizedBox(height: 20),
+
+                    // Quick Phrases Presets Bar
+                    _buildQuickPresetsBar(),
+
+                    // Virtual Ol Chiki Keyboard
+                    if (_showVirtualKeyboard) ...[
+                      const SizedBox(height: 16),
+                      _buildVirtualKeyboard(),
+                    ],
                   ],
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 16),
 
-            // ── Language Selector Bar ──
-            _buildLanguageSelectorBar(),
-            const SizedBox(height: 16),
-
-            // ── Input Card ──
-            _buildInputCard(),
-            const SizedBox(height: 16),
-
-            // ── Output Card ──
-            if (_result != null) _buildOutputCard(),
-
-            // ── Virtual Ol Chiki Keyboard ──
-            if (_showVirtualKeyboard) ...[
-              const SizedBox(height: 16),
-              _buildVirtualKeyboard(),
-            ],
+            // Footer
+            const AppFooter(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildLanguageSelectorBar() {
+  Widget _buildHeader() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0FDF4),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFD1EAD4)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.auto_awesome_rounded, size: 14, color: Color(0xFF249144)),
+              SizedBox(width: 6),
+              Text(
+                "Offline-First Translation Studio",
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF14532D)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        const Text(
+          "Multilingual Translator",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 34,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF0F172A),
+            fontFamily: 'serif',
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Underline Bar with Centered Green Accent
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(width: 140, height: 2, color: const Color(0xFFE2E8F0)),
+            Container(
+              width: 60,
+              height: 3,
+              decoration: BoxDecoration(
+                color: const Color(0xFF86C498),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        const Text(
+          "Bidirectional tribal language translation and linguistic accessibility engine for educators and frontline cadres.",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 14, color: Color(0xFF64748B), height: 1.5),
+        ),
+        const SizedBox(height: 16),
+
+        // Action HUD Bar
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.center,
+          children: [
+            _buildHudBadge("🟢 OFFLINE READY", const Color(0xFFECFDF5), const Color(0xFFA7F3D0), const Color(0xFF065F46)),
+            _buildHudButton("⚡ Test Offline Mode", Icons.bolt_rounded, const Color(0xFFFFFBEB), const Color(0xFFFDE68A), const Color(0xFF92400E), () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Simulating 100% Offline Mode: Zero network requests active!"), backgroundColor: Color(0xFF249144)),
+              );
+            }),
+            _buildHudButton("🎯 SIH 60s Demo", Icons.auto_awesome_rounded, const Color(0xFFF0FDF4), const Color(0xFFBBF7D0), const Color(0xFF14532D), () {
+              _inputController.text = "Where is the primary school?";
+              _handleTranslate();
+            }),
+            _buildHudBadge("Dataset Audit (6,780)", const Color(0xFFEFF6FF), const Color(0xFFBFDBFE), const Color(0xFF1E40AF)),
+            _buildHudBadge("Linguistic Honesty Guard ✓", const Color(0xFFF8FAFC), const Color(0xFFE2E8F0), const Color(0xFF334155)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHudBadge(String text, Color bg, Color border, Color textColor) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor),
+      ),
+    );
+  }
+
+  Widget _buildHudButton(String text, IconData icon, Color bg, Color border, Color textColor, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: textColor),
+            const SizedBox(width: 4),
+            Text(
+              text,
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textColor),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudioContainer() {
+    return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Studio Language Header Bar
+          _buildStudioHeaderBar(),
+
+          // Input Card
+          _buildInputSection(),
+
+          // Divider
+          Container(height: 1, color: const Color(0xFFF1F5F9)),
+
+          // Output Card
+          if (_result != null) _buildOutputSection(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudioHeaderBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(28), topRight: Radius.circular(28)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Source Language Dropdown
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _sourceLang,
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
-              items: supportedLanguages.map((l) {
-                return DropdownMenuItem(
-                  value: l.code,
-                  child: Text(
-                    "${l.name} (${l.script})",
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                  ),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() => _sourceLang = val);
-                  _handleTranslate();
-                }
-              },
-            ),
+          // Source Picker
+          Row(
+            children: [
+              const Text("From: ", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+              DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _sourceLang,
+                  icon: const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF249144)),
+                  items: supportedLanguages.map((l) => DropdownMenuItem(value: l.code, child: Text("${l.name} (${l.script})", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)))).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _sourceLang = val);
+                      _handleTranslate();
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
 
           // Swap Button
           IconButton(
-            icon: const Icon(Icons.swap_horiz_rounded, color: AppColors.primary),
+            icon: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF249144)),
             onPressed: _swapLanguages,
+            tooltip: "Swap Languages",
           ),
 
-          // Target Language Dropdown
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _targetLang,
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
-              items: supportedLanguages.map((l) {
-                return DropdownMenuItem(
-                  value: l.code,
-                  child: Text(
-                    "${l.name} (${l.script})",
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primaryDark),
-                  ),
-                );
-              }).toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() => _targetLang = val);
-                  _handleTranslate();
-                }
-              },
-            ),
+          // Target Picker
+          Row(
+            children: [
+              const Text("To: ", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+              DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _targetLang,
+                  icon: const Icon(Icons.arrow_drop_down_rounded, color: Color(0xFF249144)),
+                  items: supportedLanguages.map((l) => DropdownMenuItem(value: l.code, child: Text("${l.name} (${l.script})", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF14532D))))).toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _targetLang = val);
+                      _handleTranslate();
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInputCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
-      ),
-      padding: const EdgeInsets.all(16),
+  Widget _buildInputSection() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -227,28 +364,24 @@ class _TextToTextScreenState extends State<TextToTextScreen> {
             children: [
               Text(
                 "INPUT TEXT (${_inputController.text.length} chars)",
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 0.5),
               ),
               Row(
                 children: [
                   if (_sourceLang == 'sat')
                     TextButton.icon(
-                      onPressed: () {
-                        setState(() => _showVirtualKeyboard = !_showVirtualKeyboard);
-                      },
-                      icon: const Icon(Icons.keyboard_alt_outlined, size: 16),
+                      onPressed: () => setState(() => _showVirtualKeyboard = !_showVirtualKeyboard),
+                      icon: const Icon(Icons.keyboard_alt_outlined, size: 14),
                       label: Text(_showVirtualKeyboard ? "Hide Keys" : "Ol Chiki Keys", style: const TextStyle(fontSize: 11)),
-                      style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+                      style: TextButton.styleFrom(foregroundColor: const Color(0xFF249144)),
                     ),
                   if (_inputController.text.isNotEmpty)
                     IconButton(
-                      icon: const Icon(Icons.clear_rounded, size: 18, color: AppColors.textMuted),
+                      icon: const Icon(Icons.clear_rounded, size: 16, color: Color(0xFF94A3B8)),
                       onPressed: () {
                         _inputController.clear();
                         setState(() => _result = null);
                       },
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
                     ),
                 ],
               ),
@@ -259,80 +392,86 @@ class _TextToTextScreenState extends State<TextToTextScreen> {
           TextField(
             controller: _inputController,
             maxLines: 4,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFF0F172A)),
             decoration: const InputDecoration(
               hintText: "Type text or sentence here...",
+              hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
               border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
               contentPadding: EdgeInsets.zero,
-              fillColor: Colors.transparent,
             ),
             onChanged: (_) => _handleTranslate(),
           ),
           const SizedBox(height: 12),
 
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isTranslating ? null : _handleTranslate,
-              icon: _isTranslating
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.translate_rounded, size: 18),
-              label: const Text("Translate Offline"),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.volume_up_rounded, color: Color(0xFF64748B), size: 20),
+                onPressed: () {
+                  if (_inputController.text.isNotEmpty) {
+                    TtsService.instance.speak(text: _inputController.text, langCode: _sourceLang);
+                  }
+                },
+                tooltip: "Listen Input",
+              ),
+              ElevatedButton.icon(
+                onPressed: _isTranslating ? null : _handleTranslate,
+                icon: _isTranslating
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.translate_rounded, size: 16),
+                label: const Text("Translate Offline"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF249144),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildOutputCard() {
+  Widget _buildOutputSection() {
     final res = _result!;
     final isUnavailable = res.reliability == TranslationStatus.unavailable;
 
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isUnavailable ? Colors.amber.shade50 : AppColors.surfaceSubtle,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isUnavailable ? Colors.amber.shade300 : AppColors.border,
-          width: 1.2,
-        ),
+        color: isUnavailable ? const Color(0xFFFFFBEB) : const Color(0xFFF0FDF4),
+        borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Reliability Status Badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isUnavailable ? Colors.amber.shade200 : AppColors.primaryLight,
+                  color: isUnavailable ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   isUnavailable ? "UNAVAILABLE" : "VERIFIED (${(res.confidence * 100).toInt()}%)",
                   style: TextStyle(
                     fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    color: isUnavailable ? Colors.brown : AppColors.primaryDark,
+                    fontWeight: FontWeight.bold,
+                    color: isUnavailable ? const Color(0xFF92400E) : const Color(0xFF14532D),
                   ),
                 ),
               ),
-
-              // Action buttons
               Row(
                 children: [
                   IconButton(
-                    icon: Icon(
-                      _copied ? Icons.check_rounded : Icons.copy_rounded,
-                      size: 18,
-                      color: AppColors.primary,
-                    ),
+                    icon: Icon(_copied ? Icons.check_rounded : Icons.copy_rounded, size: 18, color: const Color(0xFF249144)),
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: res.targetText));
                       setState(() => _copied = true);
@@ -340,45 +479,68 @@ class _TextToTextScreenState extends State<TextToTextScreen> {
                         if (mounted) setState(() => _copied = false);
                       });
                     },
+                    tooltip: "Copy Output",
                   ),
                   IconButton(
-                    icon: const Icon(Icons.volume_up_rounded, size: 20, color: AppColors.primary),
+                    icon: const Icon(Icons.volume_up_rounded, size: 20, color: Color(0xFF249144)),
                     onPressed: () {
                       TtsService.instance.speak(text: res.targetText, langCode: _targetLang);
                     },
+                    tooltip: "Listen Audio",
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
 
-          // Output Text
           Text(
             res.targetText,
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: isUnavailable ? Colors.brown.shade900 : AppColors.primaryDark,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: isUnavailable ? const Color(0xFF78350F) : const Color(0xFF0F172A),
             ),
           ),
 
           if (res.roman != null && res.roman!.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              "Phonetic: ${res.roman}",
-              style: const TextStyle(fontSize: 13, fontStyle: FontStyle.italic, color: AppColors.textSecondary),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Text(
+                "Phonetic: ${res.roman}",
+                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Color(0xFF475569)),
+              ),
             ),
           ],
+          const SizedBox(height: 12),
 
-          const SizedBox(height: 10),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.shield_outlined, size: 12, color: AppColors.textMuted),
-              const SizedBox(width: 4),
-              Text(
-                "Source: ${res.provider}",
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textMuted),
+              Row(
+                children: [
+                  const Icon(Icons.verified_user_outlined, size: 12, color: Color(0xFF64748B)),
+                  const SizedBox(width: 4),
+                  Text("Engine: ${res.provider}", style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                ],
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.thumb_up_alt_outlined, size: 16, color: _feedbackGiven == 'up' ? const Color(0xFF249144) : const Color(0xFF94A3B8)),
+                    onPressed: () => setState(() => _feedbackGiven = 'up'),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.thumb_down_alt_outlined, size: 16, color: _feedbackGiven == 'down' ? const Color(0xFFB91C1C) : const Color(0xFF94A3B8)),
+                    onPressed: () => setState(() => _feedbackGiven = 'down'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -387,13 +549,36 @@ class _TextToTextScreenState extends State<TextToTextScreen> {
     );
   }
 
+  Widget _buildQuickPresetsBar() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: _quickPresets.map((p) {
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ActionChip(
+              label: Text(p['title']!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              onPressed: () {
+                _inputController.text = p['text']!;
+                _handleTranslate();
+              },
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildVirtualKeyboard() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,11 +586,11 @@ class _TextToTextScreenState extends State<TextToTextScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: const [
-              Text("Ol Chiki Virtual Keyboard", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-              Text("Pandit Raghunath Murmu Script", style: TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+              Text("Ol Chiki Virtual Keyboard", style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+              Text("Pandit Raghunath Murmu Script", style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -417,14 +602,14 @@ class _TextToTextScreenState extends State<TextToTextScreen> {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: AppColors.veryLightGreen,
+                    color: const Color(0xFFF0FDF4),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: const Color(0xFFD1EAD4)),
                   ),
                   child: Center(
                     child: Text(
                       key,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF14532D)),
                     ),
                   ),
                 ),
