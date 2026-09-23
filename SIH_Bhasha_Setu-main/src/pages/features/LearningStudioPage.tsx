@@ -281,11 +281,18 @@ export const LearningStudioPage: React.FC = () => {
   const handlePlayAudio = async () => {
     if (!currentCard) return;
     setIsAudioPlaying(true);
-    const result = await audioManager.playCardAudio(currentCard, {
-      onEnd: () => setIsAudioPlaying(false),
-      onError: () => setIsAudioPlaying(false)
-    });
-    setAudioPlayInfo(result);
+    try {
+      const result = await audioManager.playCardAudio(currentCard, {
+        onEnd: () => setIsAudioPlaying(false),
+        onError: () => setIsAudioPlaying(false)
+      });
+      setAudioPlayInfo(result);
+      if (!result.playing) {
+        setIsAudioPlaying(false);
+      }
+    } catch {
+      setIsAudioPlaying(false);
+    }
   };
 
   // Evidence-based Review Rating Handler (Again, Hard, Good, Easy)
