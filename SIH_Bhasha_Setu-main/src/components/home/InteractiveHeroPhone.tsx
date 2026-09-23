@@ -13,14 +13,6 @@ interface PresetPair {
 
 const PRESET_PAIRS: PresetPair[] = [
   {
-    sourceLang: 'Gondi',
-    targetLang: 'English',
-    sourceText: 'िम्मा बदम मन्तोम।',
-    targetText: 'How are you?',
-    sourceCode: 'gon',
-    targetCode: 'eng'
-  },
-  {
     sourceLang: 'Santali',
     targetLang: 'English',
     sourceText: 'ᱡᱚᱦᱟᱨ, ᱪᱮᱫ ᱞᱮᱠᱟ ᱢᱮᱱᱟᱜ ᱵᱤᱱᱟ?',
@@ -35,6 +27,14 @@ const PRESET_PAIRS: PresetPair[] = [
     targetText: 'Hello, how are you?',
     sourceCode: 'hin',
     targetCode: 'eng'
+  },
+  {
+    sourceLang: 'English',
+    targetLang: 'Santali',
+    sourceText: 'Good morning, welcome to school.',
+    targetText: 'ᱥᱟᱹᱜᱩᱱ ᱥᱮᱛᱟᱜ, ᱵᱤᱨᱫᱟᱹᱜᱟᱲ ᱛᱮ ᱥᱟᱹᱜᱩᱱ ᱫᱟᱨᱟᱢ।',
+    sourceCode: 'eng',
+    targetCode: 'sat'
   }
 ];
 

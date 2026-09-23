@@ -40,10 +40,15 @@ import {
   Users,
   BarChart3,
   TrendingUp,
-  ArrowRight
+  ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Mic
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import confetti from 'canvas-confetti';
+import { VoiceLearningStudio } from './learning/VoiceLearningStudio';
 import { SANTALI_DATASET, SantaliDatasetEntry } from '../../data/santaliDataset';
 import { playTextSpeech } from '../../services/translationService';
 import { 
@@ -57,23 +62,45 @@ import { updateStudentMastery, getMasteryLabel, getMasteryState } from '../../le
 import { generateAdaptiveWorksheet, AdaptiveGenerationResult } from '../../learning/adaptiveGenerator';
 import { generateValidatedMCQ, ValidatedMCQQuestion } from '../../learning/distractorValidator';
 import { getRecommendedNextActivity } from '../../learning/recommendationEngine';
-import { getTeacherAnalyticsSummary } from '../../learning/teacherAnalytics';
-import { StudentProfile, RecommendedActivity, TeacherAnalyticsSummary, FLNSkill, MasteryState } from '../../learning/types';
+import { getTeacherAnalyticsSummary, generateTeacherDiagnosticReport } from '../../learning/teacherAnalytics';
+import { 
+  StudentProfile, 
+  RecommendedActivity, 
+  TeacherAnalyticsSummary, 
+  FLNSkill, 
+  MasteryState,
+  EvidenceLevel,
+  ClassSkillRanking 
+} from '../../learning/types';
+import { generatePedagogicalIntervention, PedagogicalIntervention } from '../../learning/interventionEngine';
+import { CardProgress, ReviewRating, CardReviewStatus } from '../../learning/flashcardTypes';
+import { calculateNextReview, isCardMastered, createInitialCardProgress } from '../../learning/reviewScheduler';
+import { buildReviewQueue, shuffleDeck } from '../../learning/reviewQueue';
+import { learningRepository } from '../../learning/indexedDBRepository';
+import { audioManager, AudioPlayResult } from '../../learning/audioManager';
+import { createLearningEvent, mapRatingToScore } from '../../learning/learningEvents';
+import { 
+  updateSkillWithEvent, 
+  incorporateFlashcardMetrics, 
+  UnifiedSkillMastery, 
+  createInitialSkillMastery 
+} from '../../learning/unifiedSkills';
+import { detectWeakSkills, WeakSkillDiagnostic } from '../../learning/weakSkillDetector';
 
-type TabMode = 'flashcards' | 'worksheets' | 'assessment' | 'analytics';
+type TabMode = 'flashcards' | 'worksheets' | 'assessment' | 'analytics' | 'voice';
 type WorksheetExerciseType = 'matching' | 'tracing' | 'scramble' | 'mcq';
 
 export const LearningStudioPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as TabMode | null;
   const [activeTab, setActiveTab] = useState<TabMode>(
-    tabParam === 'flashcards' || tabParam === 'assessment' || tabParam === 'worksheets' || tabParam === 'analytics'
+    tabParam === 'flashcards' || tabParam === 'assessment' || tabParam === 'worksheets' || tabParam === 'analytics' || tabParam === 'voice'
       ? tabParam 
       : 'flashcards'
   );
 
   useEffect(() => {
-    if (tabParam === 'flashcards' || tabParam === 'worksheets' || tabParam === 'assessment' || tabParam === 'analytics') {
+    if (tabParam === 'flashcards' || tabParam === 'worksheets' || tabParam === 'assessment' || tabParam === 'analytics' || tabParam === 'voice') {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
@@ -84,13 +111,103 @@ export const LearningStudioPage: React.FC = () => {
   };
 
   // ==========================================
-  // 1. FLASHCARDS STATE
+  // 1. ACTIVE STUDENT & COHORT ROSTER STATE
+  // ==========================================
+  const [activeStudent, setActiveStudentState] = useState<StudentProfile>(() => getActiveStudent());
+  const [studentsList, setStudentsList] = useState<StudentProfile[]>(() => getAllStudents());
+
+  // ==========================================
+  // 2. 3D AUDIO FLASHCARDS & SPACED REPETITION
   // ==========================================
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [cardIndex, setCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [masteredIds, setMasteredIds] = useState<string[]>([]);
   const [autoSpeak, setAutoSpeak] = useState(true);
+  const [cardProgressMap, setCardProgressMap] = useState<Map<string, CardProgress>>(new Map());
+  const [audioPlayInfo, setAudioPlayInfo] = useState<AudioPlayResult | null>(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+
+  // Load student's spaced repetition card progress from IndexedDB (with localStorage fallback)
+  useEffect(() => {
+    let isMounted = true;
+    learningRepository.getAllCardProgress(activeStudent.studentId).then((map) => {
+      if (isMounted) setCardProgressMap(map);
+    });
+    return () => { isMounted = false; };
+  }, [activeStudent.studentId]);
+
+  // ==========================================
+  // 2B. UNIFIED SKILL MASTERY & RECOMMENDATIONS
+  // ==========================================
+  const [unifiedSkillsMap, setUnifiedSkillsMap] = useState<Map<FLNSkill, UnifiedSkillMastery>>(new Map());
+  const [topRecommendation, setTopRecommendation] = useState<RecommendedActivity | null>(null);
+  const [weakDiagnostic, setWeakDiagnostic] = useState<WeakSkillDiagnostic | null>(null);
+
+  // Refresh unified skill mastery across flashcards, worksheets, and quizzes
+  const refreshUnifiedLearningLoop = async () => {
+    try {
+      const skillsMap = await learningRepository.getAllUnifiedSkills(activeStudent.studentId);
+      const recentEvents = await learningRepository.getRecentEvents(activeStudent.studentId, 20);
+
+      // Incorporate flashcard spaced repetition deck metrics into vocabulary skill
+      const allCardProgress = Array.from(cardProgressMap.values());
+      if (allCardProgress.length > 0) {
+        const vocabSkill = skillsMap.get('vocabulary') || createInitialSkillMastery(activeStudent.studentId, 'vocabulary');
+        const updatedVocab = incorporateFlashcardMetrics(vocabSkill, allCardProgress);
+        skillsMap.set('vocabulary', updatedVocab);
+        await learningRepository.saveUnifiedSkill(updatedVocab);
+      }
+
+      setUnifiedSkillsMap(new Map(skillsMap));
+
+      // Compute overdue flashcard count
+      const now = Date.now();
+      let dueCount = 0;
+      for (const cp of cardProgressMap.values()) {
+        if (cp.nextReviewAt <= now) dueCount++;
+      }
+
+      // Detect weak skills based on real data
+      const diag = detectWeakSkills(Array.from(skillsMap.values()), recentEvents, dueCount);
+      setWeakDiagnostic(diag);
+
+      // Deterministic 7-tier recommendation
+      const rec = getRecommendedNextActivity(activeStudent.studentId, {
+        dueFlashcardsCount: dueCount,
+        unifiedSkills: Array.from(skillsMap.values()),
+        recentEvents,
+        weakDiagnostic: diag
+      });
+      setTopRecommendation(rec);
+    } catch (err) {
+      console.warn('[LearningStudio] Failed to refresh unified learning loop:', err);
+    }
+  };
+
+  useEffect(() => {
+    refreshUnifiedLearningLoop();
+  }, [activeStudent.studentId, cardProgressMap]);
+
+  // Universal handler to launch any recommended activity
+  const handleLaunchRecommendedActivity = (rec: RecommendedActivity) => {
+    if (rec.activityType === 'flashcard') {
+      if (rec.topic && rec.topic !== 'Daily Review Queue' && rec.topic !== 'General' && rec.topic !== 'Classroom') {
+        setSelectedCategory(rec.topic);
+      } else {
+        setSelectedCategory('All');
+      }
+      handleTabChange('flashcards');
+    } else if (rec.activityType === 'voice') {
+      handleTabChange('voice');
+    } else {
+      setWorksheetType(rec.activityType);
+      if (rec.topic && rec.topic !== 'General' && rec.topic !== 'Daily Review Queue') {
+        setWorksheetCat(rec.topic);
+      }
+      handleTabChange('worksheets');
+      generateNewWorksheet();
+    }
+  };
 
   // Available categories
   const categories = useMemo(() => {
@@ -104,14 +221,45 @@ export const LearningStudioPage: React.FC = () => {
   }, []);
 
   // Filtered dataset for flashcards
-  const flashcardDeck = useMemo(() => {
+  const rawDeck = useMemo(() => {
     if (selectedCategory === 'All') {
       return SANTALI_DATASET.slice(0, 300); // Top 300 rich entries
     }
     return SANTALI_DATASET.filter(item => item.cat === selectedCategory);
   }, [selectedCategory]);
 
+  // Adaptive Review Queue: Due cards first, recently incorrect, then new cards
+  const [activeDeck, setActiveDeck] = useState<SantaliDatasetEntry[]>([]);
+
+  useEffect(() => {
+    const queue = buildReviewQueue(rawDeck, cardProgressMap);
+    setActiveDeck(queue);
+    setCardIndex(0);
+  }, [rawDeck, cardProgressMap]);
+
+  const flashcardDeck = activeDeck.length > 0 ? activeDeck : rawDeck;
   const currentCard: SantaliDatasetEntry | undefined = flashcardDeck[cardIndex] || flashcardDeck[0];
+  const currentCardProgress: CardProgress | undefined = currentCard ? cardProgressMap.get(currentCard.id) : undefined;
+
+  // Mastered cards count based on evidence (masteryScore >= 85 & streak >= 3)
+  const masteredCount = useMemo(() => {
+    let count = 0;
+    for (const card of rawDeck) {
+      const p = cardProgressMap.get(card.id);
+      if (p && isCardMastered(p)) count++;
+    }
+    return count;
+  }, [rawDeck, cardProgressMap]);
+
+  // Preload audio window (current card + next card only)
+  useEffect(() => {
+    const curId = flashcardDeck[cardIndex]?.id;
+    const nextId = flashcardDeck[(cardIndex + 1) % flashcardDeck.length]?.id;
+    audioManager.preloadWindow(curId, nextId);
+    return () => {
+      audioManager.stop();
+    };
+  }, [cardIndex, flashcardDeck]);
 
   const handleNextCard = () => {
     setIsFlipped(false);
@@ -125,23 +273,118 @@ export const LearningStudioPage: React.FC = () => {
 
   const handleShuffleCards = () => {
     setIsFlipped(false);
-    setCardIndex(Math.floor(Math.random() * flashcardDeck.length));
+    setActiveDeck(prev => shuffleDeck(prev));
+    setCardIndex(0);
   };
 
-  const handleToggleMastered = (id: string) => {
-    setMasteredIds(prev => 
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
-    if (!masteredIds.includes(id)) {
-      confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+  // Play audio with honest resolution hierarchy
+  const handlePlayAudio = async () => {
+    if (!currentCard) return;
+    setIsAudioPlaying(true);
+    const result = await audioManager.playCardAudio(currentCard, {
+      onEnd: () => setIsAudioPlaying(false),
+      onError: () => setIsAudioPlaying(false)
+    });
+    setAudioPlayInfo(result);
+  };
+
+  // Evidence-based Review Rating Handler (Again, Hard, Good, Easy)
+  const handleRateCard = async (rating: ReviewRating) => {
+    if (!currentCard) return;
+    const existing = cardProgressMap.get(currentCard.id) || createInitialCardProgress(currentCard.id, activeStudent.studentId);
+    const updated = calculateNextReview(existing, rating);
+
+    // Save to IndexedDB (with fallback)
+    await learningRepository.saveCardProgress(updated);
+    setCardProgressMap(prev => new Map(prev).set(currentCard.id, updated));
+
+    // Record review entry
+    await learningRepository.recordReview({
+      id: `rev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      cardId: currentCard.id,
+      studentId: activeStudent.studentId,
+      rating,
+      reviewedAt: Date.now(),
+      previousIntervalDays: existing.intervalDays,
+      newIntervalDays: updated.intervalDays,
+      previousStatus: existing.status,
+      newStatus: updated.status
+    });
+
+    // Record Unified Learning Event for cross-activity loop
+    const fcEvent = createLearningEvent({
+      studentId: activeStudent.studentId,
+      activityId: currentCard.id,
+      activityType: 'flashcard',
+      skillId: 'vocabulary',
+      topic: currentCard.cat || 'General',
+      language: 'Santali',
+      script: 'Ol_Chiki',
+      difficulty: 1,
+      correct: rating !== 'again',
+      score: mapRatingToScore(rating),
+      metadata: { rating, streak: updated.streak, intervalDays: updated.intervalDays }
+    });
+    await learningRepository.recordLearningEvent(fcEvent);
+
+    // Update cross-activity unified skill mastery
+    const currentVocabSkill = unifiedSkillsMap.get('vocabulary') || createInitialSkillMastery(activeStudent.studentId, 'vocabulary');
+    const updatedVocabSkill = updateSkillWithEvent(currentVocabSkill, fcEvent);
+    await learningRepository.saveUnifiedSkill(updatedVocabSkill);
+    setUnifiedSkillsMap(prev => new Map(prev).set('vocabulary', updatedVocabSkill));
+
+    // Confetti on first time achieving mastery (respecting prefers-reduced-motion)
+    if (updated.status === 'mastered' && existing.status !== 'mastered') {
+      const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!prefersReducedMotion) {
+        confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+      }
     }
+
+    // Advance to next card
+    setIsFlipped(false);
+    setCardIndex(prev => (prev + 1) % flashcardDeck.length);
   };
 
+  // Star button triggers evidence-based 'good' rating
+  const handleToggleMastered = (id: string) => {
+    handleRateCard('good');
+  };
+
+  // Keyboard navigation shortcuts
+  useEffect(() => {
+    if (activeTab !== 'flashcards') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setIsFlipped(prev => !prev);
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        handleNextCard();
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        handlePrevCard();
+      } else if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault();
+        handlePlayAudio();
+      } else if (isFlipped) {
+        if (e.key === '1') handleRateCard('again');
+        else if (e.key === '2') handleRateCard('hard');
+        else if (e.key === '3') handleRateCard('good');
+        else if (e.key === '4') handleRateCard('easy');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, isFlipped, currentCard, flashcardDeck.length]);
+
   // ==========================================
-  // 2. REVAMPED ADAPTIVE WORKSHEET STATE
+  // 3. REVAMPED ADAPTIVE WORKSHEET STATE
   // ==========================================
-  const [activeStudent, setActiveStudentState] = useState<StudentProfile>(() => getActiveStudent());
-  const [studentsList, setStudentsList] = useState<StudentProfile[]>(() => getAllStudents());
   const [isAdaptiveMode, setIsAdaptiveMode] = useState<boolean>(false);
   const [adaptiveInfo, setAdaptiveInfo] = useState<AdaptiveGenerationResult | null>(null);
   const [recommendedNext, setRecommendedNext] = useState<RecommendedActivity | null>(null);
@@ -196,6 +439,9 @@ export const LearningStudioPage: React.FC = () => {
     return getTeacherAnalyticsSummary();
   }, [studentsList, activeStudent, activeTab, gradeScore]);
 
+  const [teacherReportModalOpen, setTeacherReportModalOpen] = useState(false);
+  const [expandedInterventionStudentId, setExpandedInterventionStudentId] = useState<string | null>(null);
+
   const handleCreateNewStudent = () => {
     if (!newStudentName.trim()) return;
     const created = createStudent(newStudentName.trim(), newStudentGrade);
@@ -214,6 +460,18 @@ export const LearningStudioPage: React.FC = () => {
     if (student) {
       setActiveStudentState(student);
       setActiveStudent(student);
+    }
+    if (supportItem.recommendedActivity.activityType === 'flashcard') {
+      if (supportItem.weakTopic && supportItem.weakTopic !== 'General') {
+        setSelectedCategory(supportItem.weakTopic);
+      } else {
+        setSelectedCategory('All');
+      }
+      handleTabChange('flashcards');
+      return;
+    } else if (supportItem.recommendedActivity.activityType === 'voice') {
+      handleTabChange('voice');
+      return;
     }
     setWorksheetType(supportItem.recommendedActivity.activityType);
     if (supportItem.weakTopic && supportItem.weakTopic !== 'General') {
@@ -457,8 +715,44 @@ export const LearningStudioPage: React.FC = () => {
       worksheetType
     );
 
-    const nextRec = getRecommendedNextActivity(activeStudent.studentId, worksheetType, percent);
+    // Record Unified Learning Event for cross-activity loop
+    const wsEvent = createLearningEvent({
+      studentId: activeStudent.studentId,
+      activityId: `ws_${worksheetType}_${Date.now()}`,
+      activityType: worksheetType,
+      skillId,
+      topic: currentTopic,
+      language: 'Santali',
+      script: 'Ol_Chiki',
+      difficulty: 1,
+      correct: percent >= 50,
+      score: percent,
+      metadata: { score, total, worksheetType }
+    });
+    learningRepository.recordLearningEvent(wsEvent);
+
+    // Update cross-activity unified skill mastery
+    const currentSkill = unifiedSkillsMap.get(skillId) || createInitialSkillMastery(activeStudent.studentId, skillId);
+    const updatedSkill = updateSkillWithEvent(currentSkill, wsEvent);
+    learningRepository.saveUnifiedSkill(updatedSkill);
+    setUnifiedSkillsMap(prev => new Map(prev).set(skillId, updatedSkill));
+
+    // Calculate due flashcard count for recommendation context
+    let dueCount = 0;
+    const now = Date.now();
+    for (const cp of cardProgressMap.values()) {
+      if (cp.nextReviewAt <= now) dueCount++;
+    }
+
+    const nextRec = getRecommendedNextActivity(activeStudent.studentId, {
+      lastActivityType: worksheetType,
+      lastAccuracy: percent,
+      dueFlashcardsCount: dueCount,
+      unifiedSkills: Array.from(unifiedSkillsMap.values()),
+      weakDiagnostic
+    });
     setRecommendedNext(nextRec);
+    setTopRecommendation(nextRec);
 
     setGradeScore({ 
       score, 
@@ -545,10 +839,31 @@ export const LearningStudioPage: React.FC = () => {
     if (selectedAnswer !== null) return;
     setSelectedAnswer(opt);
     const currentQ = quizQuestions[currentQuizIndex];
-    if (opt === currentQ.correctAnswer) {
+    const isCorrect = opt === currentQ.correctAnswer;
+    if (isCorrect) {
       setQuizScore(prev => prev + 1);
       confetti({ particleCount: 30, spread: 50, origin: { y: 0.8 } });
     }
+
+    // Record Unified Learning Event for Quiz
+    const event = createLearningEvent({
+      studentId: activeStudent.studentId,
+      activityId: currentQ.id,
+      activityType: currentQ.type === 'listening' ? 'listening' : 'quiz',
+      skillId: 'reading',
+      topic: 'Assessment',
+      language: 'Santali',
+      script: 'Ol_Chiki',
+      difficulty: 2,
+      correct: isCorrect,
+      score: isCorrect ? 100 : 0
+    });
+    learningRepository.recordLearningEvent(event);
+
+    const currentSkill = unifiedSkillsMap.get('reading') || createInitialSkillMastery(activeStudent.studentId, 'reading');
+    const updatedSkill = updateSkillWithEvent(currentSkill, event);
+    learningRepository.saveUnifiedSkill(updatedSkill);
+    setUnifiedSkillsMap(prev => new Map(prev).set('reading', updatedSkill));
   };
 
   const handleNextQuizQuestion = () => {
@@ -587,46 +902,58 @@ export const LearningStudioPage: React.FC = () => {
         {/* TOP TAB SWITCHER (Flashcards, Worksheets, Quiz & Assessment)              */}
         {/* ========================================================================= */}
         <div className="flex justify-center print:hidden">
-          <div className="bg-slate-200/80 p-1.5 rounded-2xl flex flex-wrap items-center gap-1.5 max-w-2xl w-full">
+          <div className="bg-slate-200/80 p-1.5 rounded-2xl flex flex-wrap items-center gap-1.5 max-w-4xl w-full">
             <button
               onClick={() => handleTabChange('flashcards')}
-              className={`flex-1 min-w-[140px] py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 min-w-[130px] py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
                 activeTab === 'flashcards'
                   ? 'bg-white text-[#14532d] shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <Layers className="w-4 h-4 text-[#249144]" />
-              <span>3D Audio Flashcards</span>
+              <span>3D Flashcards</span>
             </button>
 
             <button
               onClick={() => handleTabChange('worksheets')}
-              className={`flex-1 min-w-[140px] py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 min-w-[130px] py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
                 activeTab === 'worksheets'
                   ? 'bg-white text-[#14532d] shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <FileText className="w-4 h-4 text-[#249144]" />
-              <span>Worksheet Generator</span>
+              <span>Worksheets</span>
             </button>
 
             <button
               onClick={() => handleTabChange('assessment')}
-              className={`flex-1 min-w-[140px] py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 min-w-[130px] py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
                 activeTab === 'assessment'
                   ? 'bg-white text-[#14532d] shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <Target className="w-4 h-4 text-[#249144]" />
-              <span>Quiz and Assessment</span>
+              <span>Assessment</span>
+            </button>
+
+            <button
+              onClick={() => handleTabChange('voice')}
+              className={`flex-1 min-w-[130px] py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                activeTab === 'voice'
+                  ? 'bg-white text-[#14532d] shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+              }`}
+            >
+              <Mic className="w-4 h-4 text-[#249144]" />
+              <span>Voice Studio</span>
             </button>
 
             <button
               onClick={() => handleTabChange('analytics')}
-              className={`flex-1 min-w-[140px] py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 min-w-[130px] py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
                 activeTab === 'analytics'
                   ? 'bg-white text-[#14532d] shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
@@ -639,10 +966,106 @@ export const LearningStudioPage: React.FC = () => {
         </div>
 
         {/* ========================================================================= */}
+        {/* ACTIVE LEARNER & RECOMMENDED PRACTICE BAR (Connected Learning Loop)      */}
+        {/* ========================================================================= */}
+        <div className="print:hidden space-y-3">
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-[#249144] text-white flex items-center justify-center font-bold text-xs shadow-2xs">
+                {activeStudent.name.charAt(0)}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900">{activeStudent.name}</h3>
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    Grade {activeStudent.grade} • Santali (Ol Chiki)
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {unifiedSkillsMap.size > 0 
+                    ? `Tracked Skills: ${unifiedSkillsMap.size} • Overall FLN Telemetry Active` 
+                    : 'Personalized adaptive learning profile active'}
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Switch / Roster Link */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleTabChange('analytics')}
+                className="text-[11px] font-bold text-slate-600 hover:text-[#249144] bg-slate-50 hover:bg-emerald-50 border border-slate-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Switch Learner</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Recommended Practice Card */}
+          {topRecommendation && (
+            <div className={`p-4 rounded-2xl border shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition animate-in fade-in duration-200 ${
+              topRecommendation.priority === 'critical'
+                ? 'bg-gradient-to-r from-rose-50/70 via-white to-amber-50/50 border-rose-200'
+                : 'bg-gradient-to-r from-emerald-50/70 via-white to-green-50/50 border-emerald-200'
+            }`}>
+              <div className="flex items-start sm:items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
+                  topRecommendation.priority === 'critical'
+                    ? 'bg-rose-100 text-rose-700'
+                    : 'bg-emerald-100 text-[#249144]'
+                }`}>
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-white/80 border border-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
+                      Recommended Practice
+                    </span>
+                    {topRecommendation.priority === 'critical' && (
+                      <span className="text-[10px] font-bold text-rose-700 bg-rose-100/70 px-2 py-0.5 rounded-full">
+                        Priority Focus
+                      </span>
+                    )}
+                    <span className="text-[10px] text-slate-500 font-semibold">
+                      Difficulty {topRecommendation.difficulty}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 mt-0.5">
+                    {topRecommendation.activityType === 'flashcard' ? '3D Audio Flashcards Review' :
+                     topRecommendation.activityType === 'matching' ? 'Match the Pairs' :
+                     topRecommendation.activityType === 'scramble' ? 'Sentence Builder' :
+                     topRecommendation.activityType === 'tracing' ? 'Ol Chiki Tracing Pad' : 'MCQ Assessment'}: {topRecommendation.topic}
+                  </h4>
+                  <p className="text-xs text-slate-600 line-clamp-1">{topRecommendation.reason}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => handleLaunchRecommendedActivity(topRecommendation)}
+                className="shrink-0 w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold shadow-xs transition active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>Start Practice</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ========================================================================= */}
         {/* TAB 1: 3D AUDIO FLASHCARDS                                                */}
         {/* ========================================================================= */}
         {activeTab === 'flashcards' && currentCard && (
           <div className="space-y-6 print:hidden">
+            {/* Reduced Motion Override */}
+            <style>{`
+              @media (prefers-reduced-motion: reduce) {
+                .flashcard-3d-inner {
+                  transition: opacity 150ms ease !important;
+                  transform: none !important;
+                }
+              }
+            `}</style>
+
             {/* Top Toolbar */}
             <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
               {/* Category Filter */}
@@ -657,6 +1080,7 @@ export const LearningStudioPage: React.FC = () => {
                     setIsFlipped(false);
                   }}
                   className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none hover:border-[#249144] cursor-pointer"
+                  aria-label="Filter flashcards by topic"
                 >
                   {categories.map((c) => (
                     <option key={c} value={c}>{c}</option>
@@ -671,7 +1095,7 @@ export const LearningStudioPage: React.FC = () => {
                 </div>
                 <div className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#249144]" />
-                  <span>Mastered: <strong className="text-[#14532d]">{masteredIds.length}</strong></span>
+                  <span>Mastered: <strong className="text-[#14532d]">{masteredCount}</strong></span>
                 </div>
               </div>
             </div>
@@ -681,6 +1105,10 @@ export const LearningStudioPage: React.FC = () => {
               <div 
                 className="bg-[#249144] h-1.5 rounded-full transition-all duration-300"
                 style={{ width: `${((cardIndex + 1) / flashcardDeck.length) * 100}%` }}
+                role="progressbar"
+                aria-valuenow={Math.round(((cardIndex + 1) / flashcardDeck.length) * 100)}
+                aria-valuemin={0}
+                aria-valuemax={100}
               />
             </div>
 
@@ -688,11 +1116,20 @@ export const LearningStudioPage: React.FC = () => {
             <div className="max-w-xl mx-auto py-4">
               <div 
                 onClick={() => setIsFlipped(!isFlipped)}
-                className="cursor-pointer group select-none"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setIsFlipped(!isFlipped);
+                  }
+                }}
+                tabIndex={0}
+                role="button"
+                aria-label={isFlipped ? "Show Front Side of Card" : "Flip Card to Show Meaning"}
+                className="cursor-pointer group select-none outline-none focus-visible:ring-2 focus-visible:ring-[#249144] rounded-3xl"
                 style={{ perspective: '1000px' }}
               >
                 <div 
-                  className="relative w-full min-h-[340px] sm:min-h-[380px] rounded-3xl transition-transform duration-500 shadow-xl border border-slate-200/90"
+                  className="flashcard-3d-inner relative w-full min-h-[360px] sm:min-h-[400px] rounded-3xl transition-transform duration-500 shadow-xl border border-slate-200/90"
                   style={{ 
                     transformStyle: 'preserve-3d',
                     transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
@@ -700,32 +1137,56 @@ export const LearningStudioPage: React.FC = () => {
                 >
                   {/* FRONT SIDE (Ol Chiki + Romanized + Audio) */}
                   <div 
-                    className="absolute inset-0 w-full h-full rounded-3xl bg-gradient-to-br from-white via-green-50/30 to-emerald-50/50 p-8 flex flex-col justify-between items-center text-center backface-hidden"
+                    className="absolute inset-0 w-full h-full rounded-3xl bg-gradient-to-br from-white via-green-50/30 to-emerald-50/50 p-7 sm:p-8 flex flex-col justify-between items-center text-center backface-hidden"
                     style={{ backfaceVisibility: 'hidden' }}
                   >
                     <div className="w-full flex items-center justify-between">
                       <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/80 border border-emerald-200 px-3 py-1 rounded-full uppercase tracking-wider">
                         {currentCard.cat || 'Santali / Ol Chiki'}
                       </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleMastered(currentCard.id);
-                        }}
-                        className={`p-2 rounded-xl border transition ${
-                          masteredIds.includes(currentCard.id)
-                            ? 'bg-amber-100 border-amber-300 text-amber-700'
-                            : 'bg-white/80 border-slate-200 text-slate-400 hover:text-amber-500'
-                        }`}
-                        title="Mark as Learned"
-                      >
-                        <Star className="w-4 h-4 fill-current" />
-                      </button>
+
+                      {/* Accessible Review Status Badge */}
+                      <div className="flex items-center gap-1.5">
+                        {currentCardProgress?.status === 'mastered' ? (
+                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            <span>Mastered</span>
+                          </span>
+                        ) : currentCardProgress?.status === 'familiar' ? (
+                          <span className="text-[10px] font-bold text-blue-800 bg-blue-100 border border-blue-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <span>🌿 Familiar</span>
+                          </span>
+                        ) : currentCardProgress?.status === 'learning' ? (
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <span>↻ Learning</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <span>★ New</span>
+                          </span>
+                        )}
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleMastered(currentCard.id);
+                          }}
+                          className={`p-1.5 rounded-xl border transition cursor-pointer ${
+                            currentCardProgress?.status === 'mastered'
+                              ? 'bg-amber-100 border-amber-300 text-amber-700'
+                              : 'bg-white/80 border-slate-200 text-slate-400 hover:text-amber-500'
+                          }`}
+                          title="Record Positive Recall (Good)"
+                          aria-label="Mark Positive Recall"
+                        >
+                          <Star className="w-4 h-4 fill-current" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="space-y-4 my-auto">
+                    <div className="space-y-3.5 my-auto">
                       {/* Ol Chiki Main Text */}
-                      <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-wide font-sans py-2">
+                      <h2 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-wide font-sans py-1">
                         {currentCard.sat}
                       </h2>
                       {/* Romanized Phonetic */}
@@ -734,17 +1195,27 @@ export const LearningStudioPage: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="w-full flex items-center justify-between pt-4 border-t border-emerald-100">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          playTextSpeech(currentCard.sat, 'sat');
-                        }}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold shadow-md transition active:scale-95 cursor-pointer"
-                      >
-                        <Volume2 className="w-4 h-4" />
-                        <span>Listen Pronunciation</span>
-                      </button>
+                    <div className="w-full flex items-center justify-between pt-3 border-t border-emerald-100">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePlayAudio();
+                          }}
+                          disabled={isAudioPlaying}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#249144] hover:bg-[#1a7536] disabled:opacity-70 text-white text-xs font-bold shadow-md transition active:scale-95 cursor-pointer"
+                          aria-label="Listen to Santali Pronunciation"
+                        >
+                          <Volume2 className={`w-4 h-4 ${isAudioPlaying ? 'animate-pulse text-amber-200' : ''}`} />
+                          <span>{isAudioPlaying ? 'Playing...' : 'Listen Pronunciation'}</span>
+                        </button>
+
+                        {audioPlayInfo?.source === 'phonetic_fallback' && (
+                          <span className="text-[10px] text-emerald-800 font-semibold bg-emerald-100/80 border border-emerald-200 px-2 py-1 rounded-lg hidden sm:inline-block">
+                            Phonetic Guide
+                          </span>
+                        )}
+                      </div>
 
                       <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
                         <RotateCw className="w-3.5 h-3.5" />
@@ -753,9 +1224,9 @@ export const LearningStudioPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* BACK SIDE (English + Hindi Meaning) */}
+                  {/* BACK SIDE (English + Hindi Meaning + Review Ratings) */}
                   <div 
-                    className="absolute inset-0 w-full h-full rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-8 flex flex-col justify-between items-center text-center text-white backface-hidden"
+                    className="absolute inset-0 w-full h-full rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6 sm:p-7 flex flex-col justify-between items-center text-center text-white backface-hidden"
                     style={{ 
                       backfaceVisibility: 'hidden',
                       transform: 'rotateY(180deg)'
@@ -765,31 +1236,21 @@ export const LearningStudioPage: React.FC = () => {
                       <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-3 py-1 rounded-full uppercase tracking-wider">
                         Meaning & Context
                       </span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleMastered(currentCard.id);
-                        }}
-                        className={`p-2 rounded-xl border transition ${
-                          masteredIds.includes(currentCard.id)
-                            ? 'bg-amber-400/20 border-amber-400 text-amber-400'
-                            : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-amber-400'
-                        }`}
-                        title="Mark as Learned"
-                      >
-                        <Star className="w-4 h-4 fill-current" />
-                      </button>
+
+                      <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full">
+                        Streak: {currentCardProgress?.streak || 0}
+                      </span>
                     </div>
 
-                    <div className="space-y-4 my-auto">
-                      <div className="space-y-1">
+                    <div className="space-y-3 my-auto">
+                      <div className="space-y-0.5">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">English</span>
                         <h3 className="text-2xl sm:text-3xl font-bold text-white">
                           {currentCard.en}
                         </h3>
                       </div>
 
-                      <div className="space-y-1 pt-2 border-t border-slate-700/60 max-w-xs mx-auto">
+                      <div className="space-y-0.5 pt-2 border-t border-slate-700/60 max-w-xs mx-auto">
                         <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Hindi (हिन्दी)</span>
                         <h4 className="text-xl sm:text-2xl font-bold text-emerald-200">
                           {currentCard.hi}
@@ -797,22 +1258,62 @@ export const LearningStudioPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="w-full flex items-center justify-between pt-4 border-t border-slate-800">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          playTextSpeech(currentCard.sat, 'sat');
-                        }}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md transition active:scale-95 cursor-pointer"
-                      >
-                        <Volume2 className="w-4 h-4" />
-                        <span>Hear Santali</span>
-                      </button>
+                    {/* Child-Friendly Spaced Repetition Recall Ratings */}
+                    <div className="w-full pt-3 border-t border-slate-800 space-y-2">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider px-1">
+                        <span>Rate Recall:</span>
+                        <span className="text-emerald-400">Keys: 1, 2, 3, 4</span>
+                      </div>
 
-                      <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
-                        <RotateCw className="w-3.5 h-3.5" />
-                        <span>Tap to Flip</span>
-                      </span>
+                      <div className="grid grid-cols-4 gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRateCard('again');
+                          }}
+                          className="py-1.5 px-1 rounded-xl bg-red-950/70 hover:bg-red-900 border border-red-800 text-red-200 text-xs font-bold transition active:scale-95 flex flex-col items-center cursor-pointer"
+                          aria-label="Rate again (Review in 1 day)"
+                        >
+                          <span>Again</span>
+                          <span className="text-[9px] text-red-300 font-normal">1d [1]</span>
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRateCard('hard');
+                          }}
+                          className="py-1.5 px-1 rounded-xl bg-amber-950/70 hover:bg-amber-900 border border-amber-800 text-amber-200 text-xs font-bold transition active:scale-95 flex flex-col items-center cursor-pointer"
+                          aria-label="Rate hard (Review in 2 days)"
+                        >
+                          <span>Hard</span>
+                          <span className="text-[9px] text-amber-300 font-normal">2d [2]</span>
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRateCard('good');
+                          }}
+                          className="py-1.5 px-1 rounded-xl bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-800 text-emerald-200 text-xs font-bold transition active:scale-95 flex flex-col items-center cursor-pointer"
+                          aria-label="Rate good (Review in 4 days)"
+                        >
+                          <span>Good</span>
+                          <span className="text-[9px] text-emerald-300 font-normal">4d [3]</span>
+                        </button>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRateCard('easy');
+                          }}
+                          className="py-1.5 px-1 rounded-xl bg-blue-950/70 hover:bg-blue-900 border border-blue-800 text-blue-200 text-xs font-bold transition active:scale-95 flex flex-col items-center cursor-pointer"
+                          aria-label="Rate easy (Review in 8 days)"
+                        >
+                          <span>Easy</span>
+                          <span className="text-[9px] text-blue-300 font-normal">8d [4]</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -823,6 +1324,7 @@ export const LearningStudioPage: React.FC = () => {
                 <button
                   onClick={handlePrevCard}
                   className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold rounded-2xl border border-slate-200 shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                  aria-label="Previous card (Left Arrow)"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span>Previous</span>
@@ -831,6 +1333,7 @@ export const LearningStudioPage: React.FC = () => {
                 <button
                   onClick={() => setIsFlipped(!isFlipped)}
                   className="px-5 py-2.5 bg-[#249144] hover:bg-[#1a7536] text-white text-xs sm:text-sm font-bold rounded-2xl shadow-md transition active:scale-95 flex items-center gap-2 cursor-pointer"
+                  aria-label="Flip card (Spacebar)"
                 >
                   <RotateCw className="w-4 h-4" />
                   <span>{isFlipped ? 'Show Front' : 'Flip Card'}</span>
@@ -839,6 +1342,7 @@ export const LearningStudioPage: React.FC = () => {
                 <button
                   onClick={handleNextCard}
                   className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold rounded-2xl border border-slate-200 shadow-xs transition active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                  aria-label="Next card (Right Arrow)"
                 >
                   <span>Next</span>
                   <ChevronRight className="w-4 h-4" />
@@ -847,10 +1351,16 @@ export const LearningStudioPage: React.FC = () => {
                 <button
                   onClick={handleShuffleCards}
                   className="p-2.5 bg-white hover:bg-slate-50 text-slate-700 rounded-2xl border border-slate-200 shadow-xs transition active:scale-95 cursor-pointer"
-                  title="Shuffle Deck"
+                  title="Randomize deck order"
+                  aria-label="Randomize deck order"
                 >
                   <Shuffle className="w-4 h-4" />
                 </button>
+              </div>
+
+              {/* Keyboard Shortcuts Helper Hint */}
+              <div className="text-center mt-3 text-[11px] text-slate-400 font-medium">
+                <span>Shortcuts: <strong>Space</strong> Flip • <strong>L</strong> Listen • <strong>← / →</strong> Navigate • <strong>1-4</strong> Rate</span>
               </div>
             </div>
           </div>
@@ -1731,17 +2241,16 @@ export const LearningStudioPage: React.FC = () => {
                       <p className="text-xs font-bold text-slate-900">
                         {recommendedNext.activityType === 'matching' ? 'Match the Pairs' :
                          recommendedNext.activityType === 'tracing' ? 'Ol Chiki Tracing Pad' :
-                         recommendedNext.activityType === 'scramble' ? 'Sentence Builder' : 'MCQ Assessment'}: {recommendedNext.topic}
+                         recommendedNext.activityType === 'scramble' ? 'Sentence Builder' :
+                         recommendedNext.activityType === 'flashcard' ? '3D Audio Flashcards Review' : 'MCQ Assessment'}: {recommendedNext.topic}
                       </p>
                       <p className="text-[11px] text-slate-600 leading-snug">
                         {recommendedNext.reason}
                       </p>
                       <button
                         onClick={() => {
-                          setWorksheetType(recommendedNext.activityType);
-                          setWorksheetCat(recommendedNext.topic);
                           setGradeModalOpen(false);
-                          generateNewWorksheet();
+                          handleLaunchRecommendedActivity(recommendedNext);
                         }}
                         className="w-full py-2 bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                       >
@@ -1764,154 +2273,7 @@ export const LearningStudioPage: React.FC = () => {
           </div>
         )}
 
-        {/* ========================================================================= */}
-        {/* TAB 2: 3D FLASHCARDS                                                      */}
-        {/* ========================================================================= */}
-        {activeTab === 'flashcards' && (
-          <div className="space-y-6">
-            
-            {/* Category Filter & Stats */}
-            <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-[#249144]" />
-                <span className="text-xs font-bold text-slate-700">Vocabulary Topic:</span>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => {
-                    setSelectedCategory(e.target.value);
-                    setCardIndex(0);
-                    setIsFlipped(false);
-                  }}
-                  className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-800 outline-none hover:border-[#249144] cursor-pointer"
-                >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
 
-              <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
-                <span className="bg-green-50 text-[#14532d] px-3 py-1 rounded-full border border-green-200">
-                  Mastered: {masteredIds.length} cards
-                </span>
-                <span>Card {cardIndex + 1} of {flashcardDeck.length}</span>
-              </div>
-            </div>
-
-            {/* 3D Flip Flashcard */}
-            {currentCard && (
-              <div className="max-w-xl mx-auto">
-                <div 
-                  onClick={() => {
-                    setIsFlipped(!isFlipped);
-                    if (!isFlipped && autoSpeak) {
-                      playTextSpeech(currentCard.sat, 'sat');
-                    }
-                  }}
-                  className="w-full h-80 sm:h-96 rounded-3xl bg-white border-2 border-emerald-100 shadow-xl cursor-pointer hover:shadow-2xl transition-all duration-300 relative p-8 flex flex-col justify-between group overflow-hidden"
-                  style={{ perspective: '1000px' }}
-                >
-                  {/* Decorative corner accent */}
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-green-100/60 to-transparent rounded-bl-full pointer-events-none"></div>
-
-                  {/* Top card header */}
-                  <div className="flex items-center justify-between z-10">
-                    <span className="text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-600 px-3 py-1 rounded-full border border-slate-200">
-                      {currentCard.cat || 'General'}
-                    </span>
-
-                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1 group-hover:text-[#249144]">
-                      <RotateCw className="w-3.5 h-3.5" /> Tap to flip
-                    </span>
-                  </div>
-
-                  {/* Center Text Content */}
-                  <div className="text-center space-y-4 my-auto z-10">
-                    {!isFlipped ? (
-                      /* FRONT SIDE (English / Hindi) */
-                      <div className="space-y-3 animate-in fade-in duration-200">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">English & Hindi</span>
-                        <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 leading-snug">
-                          {currentCard.en}
-                        </h2>
-                        <p className="text-lg text-slate-600 font-medium">
-                          {currentCard.hi}
-                        </p>
-                      </div>
-                    ) : (
-                      /* BACK SIDE (Santali Ol Chiki & Pronunciation) */
-                      <div className="space-y-3 animate-in zoom-in-95 duration-200">
-                        <span className="text-xs font-bold text-[#249144] uppercase tracking-widest block">Santali (Ol Chiki)</span>
-                        <h2 className="text-3xl sm:text-4xl font-bold text-[#249144] leading-relaxed">
-                          {currentCard.sat}
-                        </h2>
-                        <div className="inline-block bg-green-50 px-4 py-1.5 rounded-2xl border border-green-200">
-                          <p className="text-sm font-bold text-[#14532d] font-mono">
-                            /{currentCard.roman}/
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bottom card footer */}
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-100 z-10">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        playTextSpeech(isFlipped ? currentCard.sat : currentCard.en, isFlipped ? 'sat' : 'eng');
-                      }}
-                      className="p-2.5 rounded-xl bg-slate-50 hover:bg-green-50 text-slate-600 hover:text-[#249144] border border-slate-200 transition shadow-xs flex items-center gap-1.5 text-xs font-bold cursor-pointer"
-                    >
-                      <Volume2 className="w-4 h-4" />
-                      <span>{isFlipped ? 'Pronounce Santali' : 'Speak'}</span>
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleMastered(currentCard.id);
-                      }}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 cursor-pointer ${
-                        masteredIds.includes(currentCard.id)
-                          ? 'bg-green-500 text-white border-green-500'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-green-400'
-                      }`}
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      <span>{masteredIds.includes(currentCard.id) ? 'Mastered!' : 'Mark Mastered'}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Bottom Navigation Buttons */}
-                <div className="flex items-center justify-between gap-4 mt-6">
-                  <button
-                    onClick={handlePrevCard}
-                    className="px-5 py-3 rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-[#249144] font-bold text-xs sm:text-sm text-slate-700 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
-                  >
-                    <ChevronLeft className="w-4 h-4" /> Previous
-                  </button>
-
-                  <button
-                    onClick={handleShuffleCards}
-                    className="p-3 rounded-2xl bg-white border border-slate-200 shadow-sm hover:border-[#249144] font-bold text-xs text-slate-700 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
-                    title="Shuffle Cards"
-                  >
-                    <Shuffle className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={handleNextCard}
-                    className="px-6 py-3 rounded-2xl bg-[#249144] hover:bg-[#1a7536] text-white shadow-md font-bold text-xs sm:text-sm flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
-                  >
-                    Next Card <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ========================================================================= */}
         {/* TAB 3: QUIZ & ASSESSMENT                                                  */}
@@ -2067,6 +2429,36 @@ export const LearningStudioPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Recommended Next Step */}
+                {topRecommendation && (
+                  <div className="bg-emerald-50/70 p-5 rounded-2xl border border-emerald-200 max-w-md mx-auto text-left space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-[#249144]" /> Recommended Next Step
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-emerald-200 text-[#14532d]">
+                        Difficulty {topRecommendation.difficulty}
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-900">
+                      {topRecommendation.activityType === 'flashcard' ? '3D Audio Flashcards Review' :
+                       topRecommendation.activityType === 'matching' ? 'Match the Pairs' :
+                       topRecommendation.activityType === 'scramble' ? 'Sentence Builder' :
+                       topRecommendation.activityType === 'tracing' ? 'Ol Chiki Tracing Pad' : 'MCQ Practice'}: {topRecommendation.topic}
+                    </p>
+                    <p className="text-[11px] text-slate-600 leading-snug">
+                      {topRecommendation.reason}
+                    </p>
+                    <button
+                      onClick={() => handleLaunchRecommendedActivity(topRecommendation)}
+                      className="w-full py-2 bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      <span>Start Practice</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Printable Certificate */}
                 {showCertificate && (
                   <div className="mt-8 p-8 sm:p-12 rounded-3xl border-4 border-amber-200 bg-gradient-to-br from-amber-50/50 via-white to-green-50/40 text-center space-y-6 shadow-xl relative overflow-hidden">
@@ -2121,6 +2513,13 @@ export const LearningStudioPage: React.FC = () => {
               </div>
 
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <button
+                  onClick={() => setTeacherReportModalOpen(true)}
+                  className="px-5 py-3 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition active:scale-95 cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-[#249144]" />
+                  <span>Export Diagnostic Report</span>
+                </button>
                 <button
                   onClick={() => setNewStudentModalOpen(true)}
                   className="px-5 py-3 rounded-2xl bg-[#249144] hover:bg-[#1a7536] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-md transition active:scale-95 cursor-pointer"
@@ -2234,6 +2633,70 @@ export const LearningStudioPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Class-Level Priority Weak Skills Ranking */}
+            {analyticsSummary.topWeakSkills && analyticsSummary.topWeakSkills.length > 0 && (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-900">Class-Level FLN Weak Skill Priorities</h3>
+                      <p className="text-xs text-slate-500">Aggregated competencies across all students ranked by urgency and performance deficit</p>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1 rounded-full">
+                    {analyticsSummary.topWeakSkills.length} Priority Competencies
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {analyticsSummary.topWeakSkills.map((ranking, idx) => {
+                    const urgencyBg = ranking.severity === 'critical' 
+                      ? 'bg-rose-50 border-rose-200 text-rose-700' 
+                      : ranking.severity === 'moderate' 
+                      ? 'bg-amber-50 border-amber-200 text-amber-700' 
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-700';
+
+                    return (
+                      <div key={idx} className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 capitalize">
+                            {ranking.skillId.replace(/_/g, ' ')}
+                          </span>
+                          <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${urgencyBg}`}>
+                            {ranking.severity} Priority
+                          </span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-500">Class Average</span>
+                            <span className="font-bold text-slate-800">{ranking.averageScore}%</span>
+                          </div>
+                          <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full ${
+                                ranking.averageScore < 50 ? 'bg-rose-500' : ranking.averageScore < 70 ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`}
+                              style={{ width: `${ranking.averageScore}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60">
+                          <span>Domain: <strong className="text-slate-700 capitalize">{ranking.domain}</strong></span>
+                          <span><strong>{ranking.studentCountNeedingSupport}</strong> of {analyticsSummary.totalStudents} students &lt; 60%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Priority Targeted Interventions */}
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
               <div className="flex items-center justify-between">
@@ -2262,62 +2725,134 @@ export const LearningStudioPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {analyticsSummary.studentsNeedingSupport.map((item, idx) => (
-                    <div 
-                      key={idx}
-                      className="p-5 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/40 via-white to-orange-50/20 space-y-4 hover:border-amber-300 transition"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm">
-                            {item.studentName.charAt(0)}
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-bold text-slate-900">{item.studentName}</h4>
-                            <p className="text-[11px] text-slate-500">Learner ID: {item.studentId}</p>
-                          </div>
-                        </div>
+                  {analyticsSummary.studentsNeedingSupport.map((item, idx) => {
+                    const student = studentsList.find(s => s.studentId === item.studentId) || activeStudent;
+                    const progressRecords = getStudentProgress(item.studentId);
+                    const skillRecord = progressRecords.find(p => p.skillId === item.weakSkill);
+                    const evidenceLevel: EvidenceLevel = skillRecord?.evidenceLevel || 'limited';
+                    const isExpanded = expandedInterventionStudentId === item.studentId;
+                    const intervention = generatePedagogicalIntervention(student, item.weakSkill);
 
-                        <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full capitalize">
-                          {item.weakSkill.replace('_', ' ')}
-                        </span>
-                      </div>
-
-                      {/* Mastery Bar */}
-                      <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-100">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-600">Focus Topic: <strong>{item.weakTopic}</strong></span>
-                          <span className="font-bold text-amber-700">
-                            {item.masteryScore}% ({getMasteryLabel(getMasteryState(item.masteryScore)).label})
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                          <div 
-                            className="bg-amber-500 h-full rounded-full" 
-                            style={{ width: `${item.masteryScore}%` }} 
-                          />
-                        </div>
-                      </div>
-
-                      {/* Recommended Action Card */}
-                      <div className="bg-white/80 p-3 rounded-xl border border-amber-100/80 text-xs text-slate-600 space-y-1">
-                        <div className="flex items-center gap-1.5 text-amber-800 font-bold">
-                          <Lightbulb className="w-3.5 h-3.5" />
-                          <span>Recommended Intervention:</span>
-                        </div>
-                        <p>{item.recommendedActivity.reason}</p>
-                      </div>
-
-                      {/* Action Button */}
-                      <button
-                        onClick={() => handleAssignSupportWorksheet(item)}
-                        className="w-full py-2.5 px-4 rounded-xl bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition active:scale-98 cursor-pointer"
+                    return (
+                      <div 
+                        key={idx}
+                        className="p-5 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/40 via-white to-orange-50/20 space-y-4 hover:border-amber-300 transition"
                       >
-                        <span>Assign & Launch Adaptive Worksheet</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm">
+                              {item.studentName.charAt(0)}
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900">{item.studentName}</h4>
+                              <p className="text-[11px] text-slate-500">Learner ID: {item.studentId}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                              evidenceLevel === 'strong' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
+                              evidenceLevel === 'moderate' ? 'bg-blue-50 border-blue-200 text-blue-700' :
+                              evidenceLevel === 'limited' ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                              'bg-slate-100 border-slate-300 text-slate-600'
+                            }`}>
+                              Evidence: {evidenceLevel}
+                            </span>
+                            <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full capitalize">
+                              {item.weakSkill.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Mastery Bar */}
+                        <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-100">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-600">Focus Topic: <strong>{item.weakTopic}</strong></span>
+                            <span className="font-bold text-amber-700">
+                              {item.masteryScore}% ({getMasteryLabel(getMasteryState(item.masteryScore)).label})
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div 
+                              className="bg-amber-500 h-full rounded-full" 
+                              style={{ width: `${item.masteryScore}%` }} 
+                            />
+                          </div>
+                        </div>
+
+                        {/* Recommended Action Card */}
+                        <div className="bg-white/80 p-3 rounded-xl border border-amber-100/80 text-xs text-slate-600 space-y-1">
+                          <div className="flex items-center gap-1.5 text-amber-800 font-bold">
+                            <Lightbulb className="w-3.5 h-3.5" />
+                            <span>Recommended Intervention:</span>
+                          </div>
+                          <p>{item.recommendedActivity.reason}</p>
+                        </div>
+
+                        {/* 3-Step Pedagogical Prescription Accordion */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedInterventionStudentId(isExpanded ? null : item.studentId)}
+                          className="w-full py-2 px-3 rounded-xl bg-amber-50/80 hover:bg-amber-100 border border-amber-200/80 text-amber-900 text-xs font-bold flex items-center justify-between transition cursor-pointer"
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+                            <span>Structured 3-Step Pedagogical Prescription</span>
+                          </span>
+                          {isExpanded ? <ChevronUp className="w-4 h-4 text-amber-700" /> : <ChevronDown className="w-4 h-4 text-amber-700" />}
+                        </button>
+
+                        {isExpanded && intervention && (
+                          <div className="space-y-3 bg-white p-4 rounded-xl border border-amber-200 text-xs animate-in fade-in duration-150">
+                            <div className="space-y-1">
+                              <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                                <Target className="w-3.5 h-3.5 text-[#249144]" />
+                                <span>Multi-Step Digital Reinforcement Plan</span>
+                              </div>
+                              <div className="space-y-1.5 pt-1">
+                                {intervention.prescriptions.map((step, sIdx) => (
+                                  <div key={sIdx} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-0.5">
+                                    <div className="flex items-center justify-between font-bold text-slate-800 text-[11px]">
+                                      <span>Step {step.stepNumber}: {step.title}</span>
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 uppercase font-mono">
+                                        {step.activityType} • Diff {step.difficulty}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-600">{step.description}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                              <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                                <Volume2 className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Teacher-Led Oral Classroom Prompt</span>
+                              </div>
+                              <div className="p-2.5 rounded-lg bg-blue-50/70 border border-blue-100 space-y-1">
+                                <p className="text-xs font-semibold text-blue-950">{intervention.teacherLedOralPrompt}</p>
+                              </div>
+                            </div>
+
+                            <div className="pt-1 border-t border-slate-100">
+                              <p className="text-[10px] text-slate-500 italic">
+                                <strong>Rationale:</strong> {intervention.reason}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action Button */}
+                        <button
+                          onClick={() => handleAssignSupportWorksheet(item)}
+                          className="w-full py-2.5 px-4 rounded-xl bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition active:scale-98 cursor-pointer"
+                        >
+                          <span>Assign & Launch Adaptive Worksheet</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2423,6 +2958,17 @@ export const LearningStudioPage: React.FC = () => {
         )}
 
         {/* ========================================== */}
+        {/* 5. MULTILINGUAL VOICE LEARNING STUDIO     */}
+        {/* ========================================== */}
+        {activeTab === 'voice' && (
+          <VoiceLearningStudio
+            activeStudent={activeStudent}
+            onRefreshUnifiedLoop={refreshUnifiedLearningLoop}
+            onOpenWorksheets={() => handleTabChange('worksheets')}
+          />
+        )}
+
+        {/* ========================================== */}
         {/* ADD NEW STUDENT PROFILE MODAL              */}
         {/* ========================================== */}
         {newStudentModalOpen && (
@@ -2510,6 +3056,71 @@ export const LearningStudioPage: React.FC = () => {
                 >
                   Create Learner Profile
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* TEACHER DIAGNOSTIC REPORT MODAL            */}
+        {/* ========================================== */}
+        {teacherReportModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 sm:p-8 space-y-5 max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#249144] flex items-center justify-center">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Teacher Diagnostic FLN Report</h3>
+                    <p className="text-xs text-slate-500">Exportable offline cohort intelligence & intervention matrix</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setTeacherReportModalOpen(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                <pre className="font-mono text-xs text-slate-800 whitespace-pre-wrap leading-relaxed select-all">
+                  {generateTeacherDiagnosticReport()}
+                </pre>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(generateTeacherDiagnosticReport());
+                    alert('Diagnostic report copied to clipboard!');
+                  }}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Copy className="w-4 h-4 text-slate-500" />
+                  <span>Copy Report</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTeacherReportModalOpen(false)}
+                    className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-5 py-2.5 rounded-xl bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition active:scale-95 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Print / Save as PDF</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

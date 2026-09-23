@@ -37,7 +37,6 @@ const LearningStudioPage = lazyWithRetry(() => import('./pages/features/Learning
 const DictionaryPage = lazyWithRetry(() => import('./pages/resources/DictionaryPage').then(m => ({ default: m.DictionaryPage })));
 const FieldModePage = lazyWithRetry(() => import('./pages/features/FieldModePage').then(m => ({ default: m.FieldModePage })));
 const TeacherModePage = lazyWithRetry(() => import('./pages/features/TeacherModePage').then(m => ({ default: m.TeacherModePage })));
-const KnowledgeBasePage = lazyWithRetry(() => import('./pages/resources/KnowledgeBasePage').then(m => ({ default: m.KnowledgeBasePage })));
 const EmergencyModePage = lazyWithRetry(() => import('./pages/features/EmergencyModePage').then(m => ({ default: m.EmergencyModePage })));
 const AboutPage = lazyWithRetry(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const ContactPage = lazyWithRetry(() => import('./pages/ContactPage').then(m => ({ default: m.ContactPage })));
@@ -140,7 +139,6 @@ export const App: React.FC = () => {
           {/* Core Workflows */}
           <Route path="/field-mode" element={<WithNavbar><FieldModePage /></WithNavbar>} />
           <Route path="/teacher-mode" element={<WithNavbar><TeacherModePage /></WithNavbar>} />
-          <Route path="/knowledge-base" element={<WithNavbar><KnowledgeBasePage /></WithNavbar>} />
           <Route path="/emergency-mode" element={<WithNavbar><EmergencyModePage /></WithNavbar>} />
           <Route path="/conversation" element={<WithNavbar><SpeechToSpeechPage /></WithNavbar>} />
 
@@ -154,7 +152,6 @@ export const App: React.FC = () => {
           <Route path="/features/learning-studio" element={<WithNavbar><LearningStudioPage /></WithNavbar>} />
 
           {/* Resources */}
-          <Route path="/resources/knowledge-base" element={<WithNavbar><KnowledgeBasePage /></WithNavbar>} />
           <Route path="/resources/learning-studio" element={<WithNavbar><LearningStudioPage /></WithNavbar>} />
           <Route path="/learning-studio" element={<WithNavbar><LearningStudioPage /></WithNavbar>} />
           <Route path="/resources/dictionary" element={<WithNavbar><DictionaryPage /></WithNavbar>} />

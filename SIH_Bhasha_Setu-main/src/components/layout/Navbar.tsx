@@ -257,9 +257,9 @@ export const Navbar: React.FC = () => {
                   )}
                 </button>
 
-                {/* Resources Mega Panel (2x2 Grid) */}
+                {/* Resources Mega Panel (2-item Grid) */}
                 {activeDropdown === 'resources' && (
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[740px] bg-white rounded-3xl border border-[#D5E8D5] shadow-xl p-6 grid gap-4 animate-in fade-in slide-in-from-top-2 duration-150 z-50">
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[640px] bg-white rounded-3xl border border-[#D5E8D5] shadow-xl p-6 grid gap-4 animate-in fade-in slide-in-from-top-2 duration-150 z-50">
                     <div className="border-b border-[#D5E8D5] pb-2">
                       <span className="text-[11px] font-bold text-[#667085] uppercase tracking-widest">
                         RESOURCES
@@ -267,24 +267,6 @@ export const Navbar: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      {/* Verified Knowledge Base */}
-                      <Link
-                        to="/knowledge-base"
-                        onClick={() => setActiveDropdown(null)}
-                        className="flex items-center gap-4 p-3.5 rounded-2xl border border-[#D5E8D5] bg-[#EAF5EA]/50 hover:bg-[#EAF5EA] transition group shadow-xs"
-                      >
-                        <div className="w-12 h-12 rounded-xl bg-[#238B45] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
-                          <ShieldCheck className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-[#17212B] group-hover:text-[#238B45] flex items-center gap-1.5">
-                            <span>Knowledge Base</span>
-                            <span className="text-[10px] bg-[#EAF5EA] text-[#238B45] px-1.5 py-0.2 rounded-full font-bold">New</span>
-                          </p>
-                          <p className="text-xs text-[#667085] mt-0.5">12-category verified lexicon</p>
-                        </div>
-                      </Link>
-
                       {/* Dictionary */}
                       <Link
                         to="/resources/dictionary"
@@ -544,9 +526,6 @@ export const Navbar: React.FC = () => {
               <div className="border-t border-[#D5E8D5] pt-2">
                 <p className="px-4 py-1 text-[11px] font-bold text-[#667085] uppercase tracking-wider">Resources & Knowledge</p>
                 <div className="grid gap-1 mt-1 pl-2">
-                  <Link to="/knowledge-base" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 text-xs sm:text-sm text-[#17212B] font-bold hover:bg-[#EAF5EA] hover:text-[#238B45] rounded-lg flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-[#238B45]" /> Verified Knowledge Base
-                  </Link>
                   <Link to="/resources/dictionary" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 text-xs sm:text-sm text-[#17212B] hover:bg-[#EAF5EA] hover:text-[#238B45] rounded-lg flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-[#238B45]" /> Multilingual Dictionary
                   </Link>
