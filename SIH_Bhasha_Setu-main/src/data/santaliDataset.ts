@@ -62303,6 +62303,12 @@ export function lookupExactDatasetEntry(query: string): SantaliDatasetEntry | nu
          null;
 }
 
+const SANTALI_CONVERSATIONAL_WRAPPERS = new Set([
+  'can', 'could', 'would', 'will', 'you', 'please', 'kindly', 'for', 'me', 'to', 'some', 'a', 'an', 'the',
+  'i', 'want', 'need', 'do', 'does', 'did', 'is', 'are', 'was', 'were', 'am', 'my', 'your',
+  'क्या', 'आप', 'कृपया', 'मेरे', 'लिए', 'थोड़ा', 'मुझे', 'सकते', 'हैं', 'है', 'था', 'थी', 'थे', 'एक'
+]);
+
 /**
  * Intelligent semantic fuzzy matcher for sentences and phrases with domain context weighting
  */
@@ -62314,7 +62320,6 @@ export function findSantaliMatch(
   if (!query || !query.trim()) return null;
 
   const cleanQuery = normalizeText(query);
-  const queryTokens = getSignificantTokens(query);
   const preferredDomain = options?.domain && options.domain !== 'All' ? options.domain.toLowerCase() : undefined;
 
   // 1. Exact Match
@@ -62329,8 +62334,11 @@ export function findSantaliMatch(
     if (exactSat) return { match: exactSat, confidence: 1.0 };
   }
 
-  // 2. Token Jaccard Similarity Fuzzy Match with Collision Guard
+  // 2. Tokenize and extract significant content words
+  const queryTokens = cleanQuery.split(' ').filter(t => t.length > 1);
   if (queryTokens.length === 0) return null;
+
+  const queryContentTokens = queryTokens.filter(t => !SANTALI_CONVERSATIONAL_WRAPPERS.has(t));
 
   let bestEntry: SantaliDatasetEntry | null = null;
   let bestScore = 0;
@@ -62338,53 +62346,65 @@ export function findSantaliMatch(
 
   for (const item of SANTALI_DATASET) {
     const targetText = sourceLang === 'eng' ? item.en : sourceLang === 'hin' ? item.hi : item.sat;
-    const targetTokens = getSignificantTokens(targetText);
+    const normTarget = normalizeText(targetText);
+    if (!normTarget) continue;
 
+    // Direct match
+    if (normTarget === cleanQuery) {
+      return { match: item, confidence: 0.99 };
+    }
+
+    const targetTokens = normTarget.split(' ').filter(t => t.length > 1);
     if (targetTokens.length === 0) continue;
 
-    // Calculate token intersection
+    // Calculate token intersection & Dice coefficient
     let intersection = 0;
-    for (const qToken of queryTokens) {
-      if (targetTokens.some(t => t === qToken || (qToken.length >= 4 && t.includes(qToken)))) {
-        intersection++;
-      }
+    for (const qt of queryTokens) {
+      if (targetTokens.includes(qt)) intersection++;
     }
 
-    const union = new Set([...queryTokens, ...targetTokens]).size;
-    const jaccard = union > 0 ? intersection / union : 0;
+    const dice = (2 * intersection) / (queryTokens.length + targetTokens.length);
 
-    // Strict Length Ratio Guard: prevents 3-word query matching 13-word sentence
-    const tokenRatio = Math.min(queryTokens.length, targetTokens.length) / Math.max(queryTokens.length, targetTokens.length);
-    if (tokenRatio < 0.75) continue;
-
-    const normTarget = normalizeText(targetText);
-    let score = jaccard * tokenRatio;
-
-    // Substring bonus ONLY if lengths are very close (e.g. slight punctuation/stopword difference)
-    if ((normTarget.includes(cleanQuery) || cleanQuery.includes(normTarget)) && tokenRatio >= 0.85) {
-      score = Math.max(score, 0.85 + (jaccard * 0.15));
+    // Content-word intersection
+    const targetContentTokens = targetTokens.filter(t => !SANTALI_CONVERSATIONAL_WRAPPERS.has(t));
+    let contentIntersection = 0;
+    for (const qc of queryContentTokens) {
+      if (targetContentTokens.includes(qc)) contentIntersection++;
     }
 
-    // Contextual Domain Weighting (e.g. Animal, Healthcare, Education)
+    const maxContentLen = Math.max(queryContentTokens.length, targetContentTokens.length);
+    const contentScore = maxContentLen > 0 ? (contentIntersection / maxContentLen) : 0;
+
+    let score = (0.5 * dice) + (0.5 * contentScore);
+
+    // Bonus if core content words are completely covered
+    if (queryContentTokens.length > 0 && contentIntersection === queryContentTokens.length) {
+      score = Math.max(score, 0.90 + (0.08 * dice));
+    }
+
+    // Substring bonus if lengths are close or contained
+    if (normTarget.includes(cleanQuery) || cleanQuery.includes(normTarget)) {
+      score = Math.max(score, 0.88 + (dice * 0.10));
+    }
+
+    // Contextual Domain Weighting
     if (preferredDomain && item.cat && item.cat.toLowerCase().includes(preferredDomain)) {
-      score += 0.05;
+      score += 0.04;
     }
 
-    if (score >= 0.80) {
+    if (score >= 0.78) {
       candidates.push({ entry: item, score });
     }
 
     if (score > bestScore) {
       bestScore = score;
       bestEntry = item;
-      if (bestScore >= 0.98) break; // Early exit on near-exact
+      if (bestScore >= 0.98) break;
     }
   }
 
-  // Require high confidence: single-word queries need ≥ 0.90, multi-word ≥ 0.85
-  const minThreshold = queryTokens.length <= 1 ? 0.90 : 0.85;
+  const minThreshold = queryTokens.length <= 1 ? 0.88 : 0.78;
   if (bestEntry && bestScore >= minThreshold) {
-    // Collect close alternates (within 0.05 of top score) for ambiguity safety
     const alternates = candidates
       .filter(c => c.entry.id !== bestEntry!.id && Math.abs(c.score - bestScore) <= 0.06)
       .map(c => c.entry)

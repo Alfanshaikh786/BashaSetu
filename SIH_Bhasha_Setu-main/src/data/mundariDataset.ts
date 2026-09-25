@@ -61088,8 +61088,14 @@ export interface MundariMatchResult {
   alternateCandidates?: MundariDatasetEntry[];
 }
 
+const MUNDARI_WRAPPERS = new Set([
+  'can', 'could', 'would', 'will', 'you', 'please', 'kindly', 'for', 'me', 'to', 'some', 'a', 'an', 'the',
+  'i', 'want', 'need', 'do', 'does', 'did', 'is', 'are', 'was', 'were', 'am', 'my', 'your',
+  'क्या', 'आप', 'कृपया', 'मेरे', 'लिए', 'थोड़ा', 'मुझे', 'सकते', 'हैं', 'है', 'था', 'थी', 'थे', 'एक'
+]);
+
 /**
- * Search Mundari Dataset with O(1) exact matching and token Jaccard fallback
+ * Search Mundari Dataset with O(1) exact matching, conversational wrapper normalization, and semantic token matching
  */
 export function findMundariMatch(
   query: string,
@@ -61100,19 +61106,25 @@ export function findMundariMatch(
   const cleanQuery = normalizeMundariText(query);
   if (!cleanQuery) return null;
 
+  const normalizedSourceLang = (sourceLang === 'hin' || sourceLang === 'hindi') ? 'hindi'
+    : (sourceLang === 'unr' || sourceLang === 'mun' || sourceLang === 'mundari') ? 'mundari'
+    : 'english';
+
   // 1. Exact Match via O(1) hash maps
   let exactEntry: MundariDatasetEntry | undefined;
-  if (sourceLang === 'english') exactEntry = exactEnglishMap.get(cleanQuery);
-  else if (sourceLang === 'hindi') exactEntry = exactHindiMap.get(cleanQuery);
-  else if (sourceLang === 'mundari') exactEntry = exactMundariMap.get(cleanQuery) || exactRomanMap.get(cleanQuery);
+  if (normalizedSourceLang === 'english') exactEntry = exactEnglishMap.get(cleanQuery);
+  else if (normalizedSourceLang === 'hindi') exactEntry = exactHindiMap.get(cleanQuery);
+  else if (normalizedSourceLang === 'mundari') exactEntry = exactMundariMap.get(cleanQuery) || exactRomanMap.get(cleanQuery);
 
   if (exactEntry) {
     return { match: exactEntry, confidence: 0.99 };
   }
 
-  // 2. Fuzzy / Token search across dataset
+  // 2. Tokenize and extract significant content words
   const queryTokens = cleanQuery.split(' ').filter(t => t.length > 1);
   if (queryTokens.length === 0) return null;
+
+  const queryContentTokens = queryTokens.filter(t => !MUNDARI_WRAPPERS.has(t));
 
   let bestEntry: MundariDatasetEntry | null = null;
   let bestScore = 0;
@@ -61120,29 +61132,50 @@ export function findMundariMatch(
   for (let i = 0; i < MUNDARI_DATASET.length; i++) {
     const item = MUNDARI_DATASET[i];
     let targetText = '';
-    if (sourceLang === 'english') targetText = item.en;
-    else if (sourceLang === 'hindi') targetText = item.hi;
-    else if (sourceLang === 'mundari') targetText = item.mun;
+    if (normalizedSourceLang === 'english') targetText = item.en;
+    else if (normalizedSourceLang === 'hindi') targetText = item.hi;
+    else if (normalizedSourceLang === 'mundari') targetText = item.mun;
     else targetText = item.en;
 
     const normTarget = normalizeMundariText(targetText);
     if (!normTarget) continue;
 
+    // Direct substring match
+    if (normTarget === cleanQuery) {
+      return { match: item, confidence: 0.98 };
+    }
+
     const targetTokens = normTarget.split(' ').filter(t => t.length > 1);
+    if (targetTokens.length === 0) continue;
+
+    // Token intersection & Dice coefficient
     let intersection = 0;
     for (const qt of queryTokens) {
       if (targetTokens.includes(qt)) intersection++;
     }
 
-    const union = new Set([...queryTokens, ...targetTokens]).size;
-    const jaccard = union > 0 ? intersection / union : 0;
-    const tokenRatio = Math.min(queryTokens.length, targetTokens.length) / Math.max(queryTokens.length, targetTokens.length);
+    const dice = (2 * intersection) / (queryTokens.length + targetTokens.length);
 
-    if (tokenRatio < 0.70) continue;
+    // Content-word intersection
+    const targetContentTokens = targetTokens.filter(t => !MUNDARI_WRAPPERS.has(t));
+    let contentIntersection = 0;
+    for (const qc of queryContentTokens) {
+      if (targetContentTokens.includes(qc)) contentIntersection++;
+    }
 
-    let score = jaccard * tokenRatio;
+    const maxContentLen = Math.max(queryContentTokens.length, targetContentTokens.length);
+    const contentScore = maxContentLen > 0 ? (contentIntersection / maxContentLen) : 0;
+
+    let score = (0.5 * dice) + (0.5 * contentScore);
+
+    // Bonus if core content words are completely covered
+    if (queryContentTokens.length > 0 && contentIntersection === queryContentTokens.length) {
+      score = Math.max(score, 0.90 + (0.08 * dice));
+    }
+
+    // Substring containment bonus
     if (normTarget.includes(cleanQuery) || cleanQuery.includes(normTarget)) {
-      score = Math.max(score, 0.85 + (jaccard * 0.15));
+      score = Math.max(score, 0.88 + (dice * 0.10));
     }
 
     if (score > bestScore) {
@@ -61152,10 +61185,11 @@ export function findMundariMatch(
     }
   }
 
-  const minThreshold = queryTokens.length <= 1 ? 0.90 : 0.82;
+  const minThreshold = queryTokens.length <= 1 ? 0.88 : 0.78;
   if (bestEntry && bestScore >= minThreshold) {
     return { match: bestEntry, confidence: Math.min(bestScore, 0.96) };
   }
 
   return null;
 }
+
