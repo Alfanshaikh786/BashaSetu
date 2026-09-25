@@ -21,7 +21,7 @@ export const VaaniStreamPage: React.FC = () => {
   ]);
 
   return (
-    <section className="min-h-screen bg-slate-50/50 pt-28 pb-20 px-4 sm:px-6 lg:px-8">
+    <section className="min-h-screen bg-[#F9F6F0] pt-28 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         
         {/* Header */}

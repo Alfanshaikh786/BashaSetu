@@ -282,7 +282,7 @@ export const TeacherModePage: React.FC = () => {
   const reviewCount = segments.filter(s => s.needsReview).length;
 
   return (
-    <div className="min-h-screen bg-slate-50 pt-24 pb-16 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#F9F6F0] pt-24 pb-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto space-y-6">
 
         {/* Top Classroom Bar */}

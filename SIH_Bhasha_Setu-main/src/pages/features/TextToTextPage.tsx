@@ -339,7 +339,7 @@ export const TextToTextPage: React.FC = () => {
   };
 
   return (
-    <section className="min-h-screen bg-slate-50/50 pt-2 sm:pt-28 pb-16 sm:pb-20 px-2.5 sm:px-6 lg:px-8">
+    <section className="min-h-screen bg-[#F9F6F0] pt-2 sm:pt-28 pb-16 sm:pb-20 px-2.5 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         
         {/* Mobile Compact Header Bar (md:hidden) */}

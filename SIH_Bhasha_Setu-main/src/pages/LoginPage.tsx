@@ -64,7 +64,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <section className="min-h-screen bg-slate-50/50 pt-28 pb-20 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
+    <section className="min-h-screen bg-[#F9F6F0] pt-28 pb-20 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
       <div className="w-full max-w-md space-y-8">
         
         {/* Section Header (Exact Match to User Screenshot) */}

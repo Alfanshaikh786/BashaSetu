@@ -3,8 +3,10 @@
 @tailwind utilities;
 
 @layer base {
-  html {
+  html, body {
     font-family: 'Inter', system-ui, sans-serif;
+    background-color: #F9F6F0;
+    color: #17212B;
   }
 }
 
@@ -18,7 +20,7 @@
 }
 
 .hero-bg {
-  background-color: #ffffff;
+  background-color: #F9F6F0;
   background-image: 
     radial-gradient(at 15% 15%, rgba(134, 196, 152, 0.18) 0px, transparent 55%),
     radial-gradient(at 85% 15%, rgba(47, 143, 75, 0.12) 0px, transparent 50%),
@@ -135,8 +137,12 @@ video::cue {
   font-family: 'Caveat', cursive, sans-serif;
 }
 
+body {
+  background-color: #F9F6F0;
+}
+
 .bg-organic-canvas {
-  background-color: #F8FBF7;
+  background-color: #F9F6F0;
 }
 
 .bg-organic-card {

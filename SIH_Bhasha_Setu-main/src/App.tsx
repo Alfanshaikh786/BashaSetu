@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, Component, ErrorInfo } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Navbar } from './components/layout/Navbar';
+import { Footer } from './components/layout/Footer';
 import { ScrollToTop } from './components/common/ScrollToTop';
 import { PWAInstallPrompt } from './components/common/PWAInstallPrompt';
 
@@ -62,7 +63,7 @@ class AppErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBou
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-[#F8FBF7]">
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-[#F9F6F0]">
           <div className="max-w-md bg-white p-8 rounded-2xl border border-[#D5E8D5] shadow-lg space-y-4">
             <h2 className="text-xl font-bold text-[#17212B]">Unable to load application</h2>
             <p className="text-sm text-[#667085]">
@@ -95,11 +96,12 @@ const PageLoadingFallback: React.FC = () => (
 
 /** Layout wrapper for all pages with mobile app navigation clearance */
 const WithNavbar: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="min-h-screen flex flex-col bg-[#F8FBF7] text-[#17212B]">
+  <div className="min-h-screen flex flex-col bg-[#F9F6F0] text-[#17212B]">
     <Navbar />
     <div className="flex-1 flex flex-col pb-20 md:pb-0">
       {children}
     </div>
+    <Footer />
   </div>
 );
 

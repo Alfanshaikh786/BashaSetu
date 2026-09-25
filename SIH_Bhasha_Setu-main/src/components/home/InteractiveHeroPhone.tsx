@@ -132,7 +132,7 @@ export const InteractiveHeroPhone: React.FC = () => {
         </div>
 
         {/* Screen Display Container */}
-        <div className="w-full h-full bg-[#F8FBF7] rounded-[38px] overflow-hidden flex flex-col justify-between p-4 sm:p-5 pt-3 relative border border-[#D5E8D5]">
+        <div className="w-full h-full bg-[#F9F6F0] rounded-[38px] overflow-hidden flex flex-col justify-between p-4 sm:p-5 pt-3 relative border border-[#D5E8D5]">
           
           {/* Top Status Bar */}
           <div className="flex items-center justify-between text-[#17212B] text-[11px] font-bold px-1 select-none pt-0.5">

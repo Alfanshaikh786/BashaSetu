@@ -4,7 +4,7 @@ import { ArrowRight, Sparkles, Languages, Mic, ScanText, BookOpen } from 'lucide
 
 export const HeroSection: React.FC = () => {
   return (
-    <section className="relative min-h-[75vh] lg:min-h-[80vh] w-full bg-[#F8FBF7] pt-6 pb-12 sm:pt-20 sm:pb-20 lg:pt-24 lg:pb-28 overflow-hidden flex items-center justify-center">
+    <section className="relative min-h-[75vh] lg:min-h-[80vh] w-full bg-[#F9F6F0] pt-6 pb-12 sm:pt-20 sm:pb-20 lg:pt-24 lg:pb-28 overflow-hidden flex items-center justify-center">
       
       {/* Soft Botanical Leafy Motifs (Top-Right & Bottom-Left) */}
       <div className="absolute -top-6 right-0 w-64 h-64 sm:w-80 sm:h-80 pointer-events-none opacity-40 select-none -z-10">

@@ -144,7 +144,7 @@ export const Navbar: React.FC = () => {
   return (
     <>
       {/* ─── 1. MOBILE NATIVE APP TOP BAR (md:hidden) ─── */}
-      <header className="md:hidden sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-[#D5E8D5] px-4 py-2.5 shadow-2xs safe-top">
+      <header className="md:hidden sticky top-0 z-40 w-full bg-[#F9F6F0]/95 backdrop-blur-md border-b border-[#D5E8D5] px-4 py-2.5 shadow-2xs safe-top">
         <div className="flex items-center justify-between">
           {/* Logo & Tagline */}
           <Link to="/" className="flex items-center group transition-transform active:scale-95">
@@ -198,7 +198,7 @@ export const Navbar: React.FC = () => {
       </header>
 
       {/* ─── 2. DESKTOP FLOATING NAVBAR (hidden on mobile, unchanged for desktop) ─── */}
-      <header className="hidden md:block sticky top-3 z-50 w-[calc(100%-24px)] sm:w-[calc(100%-48px)] max-w-[1440px] mx-auto bg-white/95 backdrop-blur-md border border-[#D5E8D5] rounded-[20px] shadow-[0_4px_20px_-2px_rgba(35,139,69,0.06)] transition-all duration-200">
+      <header className="hidden md:block sticky top-3 z-50 w-[calc(100%-24px)] sm:w-[calc(100%-48px)] max-w-[1440px] mx-auto bg-[#F9F6F0]/95 backdrop-blur-md border border-[#D5E8D5] rounded-[20px] shadow-[0_4px_20px_-2px_rgba(35,139,69,0.06)] transition-all duration-200">
         <div ref={dropdownRef} className="w-full px-4 sm:px-6 lg:px-7">
           <div className="flex items-center justify-between h-[68px] sm:h-[72px]">
             
@@ -551,7 +551,7 @@ export const Navbar: React.FC = () => {
       </header>
 
       {/* ─── 3. MOBILE NATIVE BOTTOM TAB BAR (md:hidden) ─── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-[#D5E8D5] shadow-[0_-4px_24px_rgba(0,0,0,0.06)] safe-bottom">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#F9F6F0]/95 backdrop-blur-lg border-t border-[#D5E8D5] shadow-[0_-4px_24px_rgba(0,0,0,0.06)] safe-bottom">
         <div className="grid grid-cols-5 h-[62px] items-center px-1">
           {/* Tab 1: Translate */}
           <Link
@@ -654,7 +654,7 @@ export const Navbar: React.FC = () => {
           className="md:hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex flex-col justify-end animate-in fade-in duration-200"
           onClick={(e) => { if (e.target === e.currentTarget) setMobileMoreOpen(false); }}
         >
-          <div className="bg-white rounded-t-[28px] border-t border-[#D5E8D5] max-h-[82vh] overflow-y-auto safe-bottom shadow-2xl p-5 animate-in slide-in-from-bottom duration-200">
+          <div className="bg-[#F9F6F0] rounded-t-[28px] border-t border-[#D5E8D5] max-h-[82vh] overflow-y-auto safe-bottom shadow-2xl p-5 animate-in slide-in-from-bottom duration-200">
             {/* Sheet Drag Handle */}
             <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
 

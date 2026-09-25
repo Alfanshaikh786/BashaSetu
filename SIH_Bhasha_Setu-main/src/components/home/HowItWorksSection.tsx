@@ -14,7 +14,7 @@ import {
 
 export const HowItWorksSection: React.FC = () => {
   return (
-    <section id="how-it-works" className="py-10 sm:py-20 lg:py-28 px-4 sm:px-6 lg:px-8 bg-[#F8FBF7] border-t border-[#D5E8D5] relative overflow-hidden">
+    <section id="how-it-works" className="py-10 sm:py-20 lg:py-28 px-4 sm:px-6 lg:px-8 bg-[#F9F6F0] border-t border-[#D5E8D5] relative overflow-hidden">
       
       {/* Decorative Botanical Foliage in Background */}
       <div className="absolute top-12 -right-8 w-56 h-56 pointer-events-none opacity-20 select-none -z-10">
@@ -123,7 +123,7 @@ export const HowItWorksSection: React.FC = () => {
                   </div>
 
                   {/* Santali Selector */}
-                  <div className="bg-[#F8FBF7] border border-[#D5E8D5] text-[#17212B] text-xs font-semibold px-3.5 py-2 rounded-xl flex items-center justify-between shadow-2xs">
+                  <div className="bg-[#F9F6F0] border border-[#D5E8D5] text-[#17212B] text-xs font-semibold px-3.5 py-2 rounded-xl flex items-center justify-between shadow-2xs">
                     <span>Santali</span>
                     <span className="text-[#667085] text-[10px] font-mono flex items-center gap-1">SNT ▾</span>
                   </div>
@@ -196,7 +196,7 @@ export const HowItWorksSection: React.FC = () => {
                   </div>
 
                   {/* Input Placeholder with Mic CTA */}
-                  <div className="w-full bg-[#F8FBF7] border border-[#D5E8D5] rounded-xl p-2.5 flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="w-full bg-[#F9F6F0] border border-[#D5E8D5] rounded-xl p-2.5 flex items-center justify-between gap-2 shadow-2xs">
                     <span className="text-[11px] text-[#667085] truncate">
                       Type, speak, or upload your content...
                     </span>

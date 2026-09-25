@@ -3,7 +3,7 @@ import { ShieldCheck, Lock, FileText, Globe } from 'lucide-react';
 
 export const PrivacyPolicyPage: React.FC = () => {
   return (
-    <section className="min-h-screen bg-slate-50/50 pt-28 pb-20 px-4 sm:px-6 lg:px-8">
+    <section className="min-h-screen bg-[#F9F6F0] pt-28 pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Header */}

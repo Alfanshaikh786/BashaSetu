@@ -25,10 +25,17 @@ export default {
           dark: '#176B3A',
           light: '#EAF5EA',
           veryLight: '#F4FAF3',
-          bg: '#F8FBF7',
+          bg: '#F9F6F0',
           border: '#D5E8D5',
           text: '#17212B',
           muted: '#667085',
+        },
+        beige: {
+          50: '#FDFBF7',
+          100: '#FAF7F2',
+          200: '#F9F6F0',
+          300: '#F3EFE6',
+          400: '#EAE4D7',
         }
       },
       fontFamily: {

@@ -5,7 +5,7 @@ import { BhashaSetuLogo } from '../common/BhashaSetuLogo';
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="bg-white text-[#17212B] border-t border-[#D5E8D5] mt-auto">
+    <footer className="bg-[#F9F6F0] text-[#17212B] border-t border-[#D5E8D5] mt-auto">
       <div className="mx-auto max-w-6xl px-6 sm:px-8 lg:px-12 pt-16 lg:pt-20 pb-8">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-3 lg:gap-12">
           
