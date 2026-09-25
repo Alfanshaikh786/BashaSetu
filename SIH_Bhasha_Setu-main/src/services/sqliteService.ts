@@ -14,6 +14,7 @@ export interface TranslationRow {
   santali_roman: string;
   ho: string;
   mundari: string;
+  mundari_roman?: string;
   category: string;
   verified: string;
 }
@@ -149,13 +150,27 @@ async function fetchFromBackend<T>(endpoint: string, options?: RequestInit): Pro
  * Maps language code to SQLite column name
  */
 function getColumnName(langCode: string): keyof TranslationRow {
-  switch (langCode) {
-    case 'eng': return 'english';
-    case 'hin': return 'hindi';
-    case 'sat': return 'santali';
-    case 'hoc': return 'ho';
-    case 'unr': return 'mundari';
-    default: return 'english';
+  switch (langCode.toLowerCase()) {
+    case 'eng':
+    case 'en':
+    case 'english':
+      return 'english';
+    case 'hin':
+    case 'hi':
+    case 'hindi':
+      return 'hindi';
+    case 'sat':
+    case 'santali':
+      return 'santali';
+    case 'hoc':
+    case 'ho':
+      return 'ho';
+    case 'unr':
+    case 'mun':
+    case 'mundari':
+      return 'mundari';
+    default:
+      return 'english';
   }
 }
 
@@ -204,13 +219,15 @@ export async function queryTranslationFromDb(
   try {
     // 1. Exact Match on source column (case-insensitive, with/without punctuation)
     const exactQuery = `
-      SELECT id, english, hindi, santali, santali_roman, ho, mundari, category, verified 
+      SELECT id, english, hindi, santali, santali_roman, ho, mundari, mundari_roman, category, verified 
       FROM translations 
       WHERE LOWER(TRIM(${srcCol})) = ? 
          OR LOWER(TRIM(english)) = ? 
          OR LOWER(TRIM(hindi)) = ? 
          OR LOWER(TRIM(santali)) = ? 
          OR LOWER(TRIM(santali_roman)) = ?
+         OR LOWER(TRIM(COALESCE(mundari, ''))) = ?
+         OR LOWER(TRIM(COALESCE(mundari_roman, ''))) = ?
          OR LOWER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(${srcCol}), '.', ''), '?', ''), '!', ''), ',', '')) = ?
          OR LOWER(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(english), '.', ''), '?', ''), '!', ''), ',', '')) = ?
       LIMIT 1;
@@ -220,18 +237,21 @@ export async function queryTranslationFromDb(
     const cleanWithPunct = clean.toLowerCase().trim();
 
     const exactStmt = db.prepare(exactQuery);
-    exactStmt.bind([cleanWithPunct, cleanWithPunct, cleanWithPunct, cleanWithPunct, cleanWithPunct, cleanWithoutPunct, cleanWithoutPunct]);
+    exactStmt.bind([
+      cleanWithPunct, cleanWithPunct, cleanWithPunct, cleanWithPunct, cleanWithPunct,
+      cleanWithPunct, cleanWithPunct, cleanWithoutPunct, cleanWithoutPunct
+    ]);
 
     if (exactStmt.step()) {
       const row = exactStmt.getAsObject() as unknown as TranslationRow;
       exactStmt.free();
 
-      // Return canonical target text directly — NEVER append (${row.santali_roman}) into targetText
-      const targetText = (row[targetCol] as string) || (row.santali as string) || row.english;
+      const targetText = (row[targetCol] as string) || (row.mundari as string) || (row.santali as string) || row.english;
+      const roman = (targetCol === 'mundari') ? row.mundari_roman : row.santali_roman;
 
       return {
         targetText,
-        roman: row.santali_roman,
+        roman,
         row,
         confidence: 0.99
       };
@@ -265,10 +285,11 @@ export async function queryTranslationFromDb(
       // Strict length-guard: Only allow match if token count is very close (prevents 3-word query matching 13-word paragraph)
       if (lengthRatio >= 0.8) {
         fuzzyStmt.free();
-        const targetText = (row[targetCol] as string) || (row.santali as string) || row.english;
+        const targetText = (row[targetCol] as string) || (row.mundari as string) || (row.santali as string) || row.english;
+        const roman = (targetCol === 'mundari') ? row.mundari_roman : row.santali_roman;
         return {
           targetText,
-          roman: row.santali_roman,
+          roman,
           row,
           confidence: 0.95
         };
@@ -324,10 +345,12 @@ export async function searchClassroomSentences(
         LOWER(english) LIKE ? OR 
         LOWER(hindi) LIKE ? OR 
         LOWER(santali) LIKE ? OR 
-        LOWER(santali_roman) LIKE ?
+        LOWER(COALESCE(santali_roman, '')) LIKE ? OR
+        LOWER(COALESCE(mundari, '')) LIKE ? OR
+        LOWER(COALESCE(mundari_roman, '')) LIKE ?
       )`);
       const pattern = `%${cleanKeyword}%`;
-      params.push(pattern, pattern, pattern, pattern);
+      params.push(pattern, pattern, pattern, pattern, pattern, pattern);
     }
 
     if (category && category !== 'All') {

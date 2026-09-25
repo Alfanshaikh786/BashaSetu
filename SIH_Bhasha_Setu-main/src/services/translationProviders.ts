@@ -15,6 +15,7 @@ import { SupportedLanguage, CENTRAL_LANGUAGES, getLanguageCode3, getLanguageCode
 import { TranslationEvidence } from './translationEvidence';
 import { getCapability, detectOutputScript } from './translationCapabilities';
 import { findSantaliMatch, lookupExactDatasetEntry } from '../data/santaliDataset';
+import { findMundariMatch, lookupExactMundariEntry } from '../data/mundariDataset';
 import { queryTranslationFromDb } from './sqliteService';
 
 export interface ProviderTranslationResult {
@@ -246,6 +247,112 @@ export class SantaliDatasetProvider implements ITranslationProvider {
 }
 
 // -------------------------------------------------------------
+// 3b. Mundari Dataset Provider (In-Memory 6,780 Entries with O(1) Lookup)
+// -------------------------------------------------------------
+export class MundariDatasetProvider implements ITranslationProvider {
+  id = 'mundari_dataset';
+  name = 'Mundari Linguistic Dataset (6,780 entries)';
+  isOffline = true;
+
+  isAvailable(sourceLang: SupportedLanguage, targetLang: SupportedLanguage): boolean {
+    return sourceLang === 'mundari' || targetLang === 'mundari';
+  }
+
+  translate(
+    text: string,
+    sourceLang: SupportedLanguage,
+    targetLang: SupportedLanguage,
+    options?: { domain?: string }
+  ): Promise<ProviderTranslationResult | null> {
+    const trimmed = text.trim();
+    const srcCode3 = getLanguageCode3(sourceLang);
+    const tgtCode3 = getLanguageCode3(targetLang);
+
+    try {
+      const lookupLang = (srcCode3 === 'hin' ? 'hin' : srcCode3 === 'unr' ? 'mun' : 'eng') as 'eng' | 'hin' | 'mun';
+      const exact = lookupExactMundariEntry(trimmed, lookupLang);
+      if (exact) {
+        let resultText = '';
+        if (tgtCode3 === 'unr') {
+          resultText = exact.mun;
+        } else if (tgtCode3 === 'hin') {
+          resultText = exact.hi;
+        } else if (tgtCode3 === 'eng') {
+          resultText = exact.en;
+        }
+
+        if (resultText && resultText.toLowerCase() !== trimmed.toLowerCase()) {
+          return Promise.resolve({
+            text: resultText,
+            provider: this.name,
+            method: 'dataset',
+            transliteration: exact.roman,
+            evidence: {
+              id: `ev-mun-${exact.id}`,
+              sourceType: 'local_dataset',
+              providerName: this.name,
+              verificationStatus: 'verified',
+              isOffline: true,
+              internetRequired: false,
+              datasetRowId: exact.id,
+              domain: exact.cat || options?.domain || 'General',
+              matchCategory: 'exact_phrase',
+              targetScript: targetLang === 'mundari' ? 'Devanagari' : CENTRAL_LANGUAGES[targetLang]?.scriptName || 'Default',
+              transliteration: exact.roman,
+              timestamp: Date.now(),
+              notes: `Entry #${exact.id} from curated 6,780-entry Mundari parallel corpus.`
+            }
+          });
+        }
+      }
+
+      // Try normalized/fuzzy match
+      const matchResult = findMundariMatch(trimmed, sourceLang, targetLang, { domain: options?.domain });
+      if (matchResult && matchResult.match && matchResult.confidence >= 0.88) {
+        const munMatch = matchResult.match;
+        let resultText = '';
+        if (tgtCode3 === 'unr') {
+          resultText = munMatch.mun;
+        } else if (tgtCode3 === 'hin') {
+          resultText = munMatch.hi;
+        } else if (tgtCode3 === 'eng') {
+          resultText = munMatch.en;
+        }
+
+        if (resultText && resultText.toLowerCase() !== trimmed.toLowerCase()) {
+          return Promise.resolve({
+            text: resultText,
+            provider: this.name,
+            method: 'dataset',
+            transliteration: munMatch.roman,
+            evidence: {
+              id: `ev-mun-fuz-${munMatch.id}`,
+              sourceType: 'local_dataset',
+              providerName: this.name,
+              verificationStatus: 'verified',
+              isOffline: true,
+              internetRequired: false,
+              datasetRowId: munMatch.id,
+              domain: munMatch.cat || options?.domain || 'General',
+              matchCategory: 'normalized_exact',
+              targetScript: targetLang === 'mundari' ? 'Devanagari' : CENTRAL_LANGUAGES[targetLang]?.scriptName || 'Default',
+              transliteration: munMatch.roman,
+              timestamp: Date.now(),
+              notes: `Entry #${munMatch.id} from curated 6,780-entry Mundari parallel corpus.`
+            }
+          });
+        }
+      }
+
+      return Promise.resolve(null);
+    } catch (e) {
+      console.warn('[MundariDatasetProvider] Lookup error:', e);
+      return Promise.resolve(null);
+    }
+  }
+}
+
+// -------------------------------------------------------------
 // 4. On-Device Model Provider (Future-Ready Interface for ONNX / Edge Models)
 // -------------------------------------------------------------
 export class OnDeviceModelProvider implements ITranslationProvider {
@@ -419,6 +526,7 @@ export class OnlineProvider implements ITranslationProvider {
 // Singleton instances
 export const localDbProvider = new LocalDatabaseProvider();
 export const santaliDatasetProvider = new SantaliDatasetProvider();
+export const mundariDatasetProvider = new MundariDatasetProvider();
 export const onDeviceModelProvider = new OnDeviceModelProvider();
 export const onlineProvider = new OnlineProvider();
 

@@ -25,6 +25,7 @@ import { SyllableEngine } from '../linguistics/syllableEngine';
 import { containsOlChiki, transliterateOlChikiPhonetic } from '../linguistics/olChikiLinguistics';
 import { RomanSantaliLinguistics } from '../linguistics/romanSantaliLinguistics';
 import { lookupExactDatasetEntry } from '../../../data/santaliDataset';
+import { lookupExactMundariEntry } from '../../../data/mundariDataset';
 import { VERIFIED_ROMAN_PHRASES } from './pronunciationEngine';
 
 export const PIPELINE_RULE_VERSION = 'v4.0-sih-intelligent';
@@ -41,11 +42,25 @@ export class PronunciationPipeline {
     const raw = text.trim();
     const lang = langCode.toLowerCase().trim();
     const isSantali = lang === 'sat' || lang === 'santali';
-    const isFutureTribal = lang === 'unr' || lang === 'hoc' || lang === 'mundari' || lang === 'ho';
+    const isMundari = lang === 'unr' || lang === 'mundari';
+    const isHo = lang === 'hoc' || lang === 'ho';
     const script: ScriptType = PronunciationContextAnalyzer.detectScript(raw);
 
-    // Future tribal languages (Mundari, Ho)
-    if (isFutureTribal) {
+    // Mundari verified dataset resolution
+    if (isMundari) {
+      const munEntry = lookupExactMundariEntry(raw, 'mun');
+      if (munEntry && munEntry.roman) {
+        return {
+          language: langCode,
+          sourceText: raw,
+          normalizedText: munEntry.mun,
+          spokenText: munEntry.roman,
+          phoneticRepresentation: munEntry.roman,
+          quality: 'CURATED',
+          rulesVersion: PIPELINE_RULE_VERSION,
+          notes: 'Stage 3 (Curated): Verified Mundari dataset phonetic pronunciation'
+        };
+      }
       return {
         language: langCode,
         sourceText: raw,
@@ -54,7 +69,21 @@ export class PronunciationPipeline {
         phoneticRepresentation: raw,
         quality: 'FALLBACK',
         rulesVersion: PIPELINE_RULE_VERSION,
-        notes: `Future scope language (${langCode}): neural acoustic model pending field recording.`
+        notes: `Mundari (${langCode}) phonetic Indian acoustic bridge.`
+      };
+    }
+
+    // Ho language fallback
+    if (isHo) {
+      return {
+        language: langCode,
+        sourceText: raw,
+        normalizedText: raw,
+        spokenText: raw,
+        phoneticRepresentation: raw,
+        quality: 'FALLBACK',
+        rulesVersion: PIPELINE_RULE_VERSION,
+        notes: `Future scope language (${langCode}): acoustic model pending.`
       };
     }
 

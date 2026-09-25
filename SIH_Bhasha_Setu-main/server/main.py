@@ -110,19 +110,19 @@ except Exception as video_err:
 
 # Language code normalization
 LANG_MAP = {
-    'eng': 1, 'en': 1,
-    'hin': 2, 'hi': 2,
-    'sat': 3,
-    'hoc': 4,
-    'unr': 5
+    'eng': 1, 'en': 1, 'english': 1,
+    'hin': 2, 'hi': 2, 'hindi': 2,
+    'sat': 3, 'santali': 3,
+    'hoc': 4, 'ho': 4,
+    'unr': 5, 'mundari': 5, 'mun': 5
 }
 
 LANG_COL_MAP = {
-    'eng': 'english', 'en': 'english',
-    'hin': 'hindi', 'hi': 'hindi',
-    'sat': 'santali',
-    'hoc': 'ho',
-    'unr': 'mundari'
+    'eng': 'english', 'en': 'english', 'english': 'english',
+    'hin': 'hindi', 'hi': 'hindi', 'hindi': 'hindi',
+    'sat': 'santali', 'santali': 'santali',
+    'hoc': 'ho', 'ho': 'ho',
+    'unr': 'mundari', 'mundari': 'mundari', 'mun': 'mundari'
 }
 
 class TranslateRequest(BaseModel):
@@ -138,6 +138,7 @@ class TranslationRowResponse(BaseModel):
     santali_roman: Optional[str] = None
     ho: Optional[str] = None
     mundari: Optional[str] = None
+    mundari_roman: Optional[str] = None
     category: str
     verified: str = "Yes"
 
@@ -291,7 +292,7 @@ def search_sentences(
         try:
             cur = conn.cursor()
             query = """
-                SELECT id, english, hindi, santali, santali_roman, ho, mundari, category, verified
+                SELECT id, english, hindi, santali, santali_roman, ho, mundari, COALESCE(mundari_roman, '') as mundari_roman, category, verified
                 FROM translations
             """
             conditions = []
@@ -302,10 +303,12 @@ def search_sentences(
                     LOWER(english) LIKE ? OR
                     LOWER(hindi) LIKE ? OR
                     LOWER(santali) LIKE ? OR
-                    LOWER(COALESCE(santali_roman, '')) LIKE ?
+                    LOWER(COALESCE(santali_roman, '')) LIKE ? OR
+                    LOWER(COALESCE(mundari, '')) LIKE ? OR
+                    LOWER(COALESCE(mundari_roman, '')) LIKE ?
                 )""")
                 pattern = f"%{clean_keyword}%"
-                params.extend([pattern, pattern, pattern, pattern])
+                params.extend([pattern, pattern, pattern, pattern, pattern, pattern])
 
             if category and category != "All":
                 conditions.append("category = ?")
@@ -331,6 +334,7 @@ def search_sentences(
                     "santali_roman": r["santali_roman"],
                     "ho": r["ho"],
                     "mundari": r["mundari"],
+                    "mundari_roman": r["mundari_roman"],
                     "category": r["category"] or "General",
                     "verified": r["verified"] or "Yes"
                 })
@@ -437,22 +441,31 @@ def translate_text(req: TranslateRequest):
 
             # 1. Exact match
             query = f"""
-                SELECT id, english, hindi, santali, santali_roman, ho, mundari, category, verified,
-                       {target_col} as target_text, santali_roman as target_roman
+                SELECT id, english, hindi, santali, santali_roman, ho, mundari, COALESCE(mundari_roman, '') as mundari_roman, category, verified,
+                       {target_col} as target_text,
+                       CASE 
+                           WHEN '{target_col}' = 'mundari' THEN COALESCE(mundari_roman, '')
+                           ELSE COALESCE(santali_roman, '')
+                       END as target_roman
                 FROM translations
                 WHERE LOWER(TRIM({src_col})) = ?
                    OR LOWER(TRIM(COALESCE(santali_roman, ''))) = ?
+                   OR LOWER(TRIM(COALESCE(mundari_roman, ''))) = ?
                 LIMIT 1;
             """
-            cur.execute(query, (lower, lower))
+            cur.execute(query, (lower, lower, lower))
             row = cur.fetchone()
 
             confidence = 0.99
             if not row:
                 # 2. Fuzzy match
                 query_fuzzy = f"""
-                    SELECT id, english, hindi, santali, santali_roman, ho, mundari, category, verified,
-                           {target_col} as target_text, santali_roman as target_roman
+                    SELECT id, english, hindi, santali, santali_roman, ho, mundari, COALESCE(mundari_roman, '') as mundari_roman, category, verified,
+                           {target_col} as target_text,
+                           CASE 
+                               WHEN '{target_col}' = 'mundari' THEN COALESCE(mundari_roman, '')
+                               ELSE COALESCE(santali_roman, '')
+                           END as target_roman
                     FROM translations
                     WHERE LOWER({src_col}) LIKE ?
                     LIMIT 1;
@@ -463,14 +476,13 @@ def translate_text(req: TranslateRequest):
 
             if row and row["target_text"]:
                 target_text = row["target_text"]
-                roman = row["target_roman"] if target_lang == 'sat' else None
-                if target_lang in ('sat', 'hoc', 'unr') and roman and '(' not in target_text:
-                    target_text = f"{target_text} ({roman})"
+                roman = row["target_roman"] if row["target_roman"] else None
 
                 res_row = {
                     "id": row["id"], "english": row["english"] or "", "hindi": row["hindi"] or "",
                     "santali": row["santali"] or "", "santali_roman": row["santali_roman"],
-                    "ho": row["ho"], "mundari": row["mundari"], "category": row["category"] or "General",
+                    "ho": row["ho"], "mundari": row["mundari"], "mundari_roman": row["mundari_roman"],
+                    "category": row["category"] or "General",
                     "verified": row["verified"] or "Yes"
                 }
                 cur.close()

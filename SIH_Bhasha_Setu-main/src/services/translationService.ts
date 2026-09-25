@@ -24,6 +24,7 @@ import {
   PhraseBankProvider,
   localDbProvider,
   santaliDatasetProvider,
+  mundariDatasetProvider,
   onDeviceModelProvider,
   onlineProvider,
   setSimulatedOffline,
@@ -911,6 +912,12 @@ async function translateSegment(
   // 3. Santali Linguistic Dataset (In-Memory 6,780 entries with O(1) hash maps)
   if (santaliDatasetProvider.isAvailable(sourceLang, targetLang)) {
     const dsRes = await santaliDatasetProvider.translate(trimmed, sourceLang, targetLang, { domain });
+    if (dsRes) return dsRes;
+  }
+
+  // 3b. Mundari Linguistic Dataset (In-Memory 6,780 entries with O(1) hash maps)
+  if (mundariDatasetProvider.isAvailable(sourceLang, targetLang)) {
+    const dsRes = await mundariDatasetProvider.translate(trimmed, sourceLang, targetLang, { domain });
     if (dsRes) return dsRes;
   }
 

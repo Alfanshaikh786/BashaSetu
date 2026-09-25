@@ -1,4 +1,5 @@
 import { SANTALI_DATASET } from './santaliDataset';
+import { MUNDARI_DATASET } from './mundariDataset';
 
 export interface DictionaryEntry {
   id: string;
@@ -233,10 +234,30 @@ const parsedSantaliEntries: DictionaryEntry[] = SANTALI_DATASET.map(item => ({
   synonyms: [item.en, item.hi]
 }));
 
-// Combined rich dictionary of 6,800+ words and sentences
+// Map 6,780+ Mundari dataset items to DictionaryEntry format
+const parsedMundariEntries: DictionaryEntry[] = MUNDARI_DATASET.map(item => ({
+  id: item.id,
+  word: item.roman || item.en,
+  nativeScript: item.mun,
+  language: 'Mundari',
+  languageCode: 'unr',
+  ipa: item.roman ? `/${item.roman}/` : '',
+  partOfSpeech: 'noun',
+  definitionEn: item.en,
+  definitionHi: item.hi,
+  exampleNative: item.mun,
+  exampleEn: item.en,
+  exampleHi: item.hi,
+  category: item.cat || 'General',
+  audioText: item.roman || item.mun,
+  synonyms: [item.en, item.hi]
+}));
+
+// Combined rich dictionary of 13,500+ words and sentences across Santali, Mundari, and Ho
 export const DICTIONARY_ENTRIES: DictionaryEntry[] = [
   ...BASE_DICTIONARY_ENTRIES,
-  ...parsedSantaliEntries
+  ...parsedSantaliEntries,
+  ...parsedMundariEntries
 ];
 
 export const DICTIONARY_CATEGORIES = [
