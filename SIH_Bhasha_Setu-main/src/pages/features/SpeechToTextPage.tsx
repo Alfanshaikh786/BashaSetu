@@ -603,11 +603,22 @@ export const SpeechToTextPage: React.FC = () => {
   };
 
   return (
-    <section className="min-h-screen bg-slate-50/50 pt-28 pb-20 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <section className="min-h-screen bg-slate-50/50 pt-2 sm:pt-28 pb-16 sm:pb-20 px-2.5 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto space-y-3 sm:space-y-6">
         
-        {/* Header & Engine Status */}
-        <div className="w-full py-4 flex flex-col items-center text-center">
+        {/* Mobile Compact Header Bar (md:hidden) */}
+        <div className="md:hidden flex items-center justify-between py-2 px-1">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#249144] animate-pulse" />
+            <h1 className="domine-bold text-base font-bold text-slate-900 tracking-tight">Voice Transcriber (ASR)</h1>
+          </div>
+          <span className="text-[10px] font-bold bg-green-50 text-[#14532d] px-2 py-0.5 rounded-full border border-green-200">
+            {asrStatus?.status === 'ready' ? 'IndicConformer' : 'Ready'}
+          </span>
+        </div>
+
+        {/* Desktop Detailed Header & Engine Status (hidden on mobile) */}
+        <div className="hidden md:flex w-full py-4 flex-col items-center text-center">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-green-50 border border-[#d1ead4] text-xs font-bold text-[#14532d] mb-3 shadow-2xs">
             <Sparkles className="w-3.5 h-3.5 text-[#249144]" /> 
             <span>Neural Automatic Speech Recognition (ASR)</span>

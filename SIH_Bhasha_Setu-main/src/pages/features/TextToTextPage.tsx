@@ -339,11 +339,35 @@ export const TextToTextPage: React.FC = () => {
   };
 
   return (
-    <section className="min-h-screen bg-slate-50/50 pt-28 pb-20 px-4 sm:px-6 lg:px-8">
+    <section className="min-h-screen bg-slate-50/50 pt-2 sm:pt-28 pb-16 sm:pb-20 px-2.5 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         
-        {/* Header Title */}
-        <div className="w-full py-4 flex flex-col items-center text-center">
+        {/* Mobile Compact Header Bar (md:hidden) */}
+        <div className="md:hidden flex items-center justify-between py-2 px-1 mb-1">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <h1 className="domine-bold text-base font-bold text-slate-900 tracking-tight">Translation Studio</h1>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setShowDemoMode(true)}
+              className="px-2.5 py-1 rounded-full bg-green-50 border border-green-200 text-[#249144] text-[11px] font-bold flex items-center gap-1 cursor-pointer active:scale-95"
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>Demo</span>
+            </button>
+            <button
+              onClick={() => setShowPacksModal(true)}
+              className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-semibold flex items-center gap-1 cursor-pointer active:scale-95"
+            >
+              <Package className="w-3 h-3 text-[#249144]" />
+              <span>Packs</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Desktop Detailed Marketing Header Title (hidden on mobile) */}
+        <div className="hidden md:flex w-full py-4 flex-col items-center text-center">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-green-50 border border-[#d1ead4] text-xs font-bold text-[#14532d] mb-2">
             <Sparkles className="w-3.5 h-3.5 text-[#249144]" /> Offline-First Translation Studio
           </div>
@@ -360,7 +384,7 @@ export const TextToTextPage: React.FC = () => {
           {/* Action HUD Bar: Offline Challenge, SIH Demo, Quality Audit, System Health, Installed Packs */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
             
-            {/* Consumer-Friendly Offline Readiness Badge (Part 11: 🟢 OFFLINE READY / 🟡 ONLINE / 🔴 NOT READY) */}
+            {/* Consumer-Friendly Offline Readiness Badge */}
             <button
               onClick={() => setShowPacksModal(true)}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full font-bold transition shadow-xs cursor-pointer border bg-white"
@@ -406,7 +430,7 @@ export const TextToTextPage: React.FC = () => {
 
             <button
               onClick={() => setShowDatasetQuality(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold hover:bg-blue-100 transition shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold hover:bg-blue-100 transition shadow-2xs cursor-pointer"
               title="View Santali dataset quality and Unicode integrity metrics"
             >
               <BarChart3 className="w-3.5 h-3.5 text-blue-600" />
@@ -415,7 +439,7 @@ export const TextToTextPage: React.FC = () => {
 
             <button
               onClick={() => setShowHumanEval(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-purple-800 font-semibold hover:bg-purple-100 transition shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-purple-800 font-semibold hover:bg-purple-100 transition shadow-2xs cursor-pointer"
               title="Native Speaker & Field Linguist Evaluation Workflow"
             >
               <UserCheck className="w-3.5 h-3.5 text-purple-600" />
@@ -424,7 +448,7 @@ export const TextToTextPage: React.FC = () => {
 
             <button
               onClick={() => setShowSystemHealth(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-300 text-slate-800 font-semibold hover:bg-slate-200 transition shadow-2xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-slate-100 border border-slate-300 text-slate-800 font-semibold hover:bg-slate-200 transition shadow-2xs cursor-pointer"
               title="Developer & Judge System Health Diagnostics"
             >
               <Activity className="w-3.5 h-3.5 text-emerald-700" />
@@ -439,20 +463,19 @@ export const TextToTextPage: React.FC = () => {
         </div>
 
         {/* Translation Studio Container */}
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xl overflow-hidden mt-4">
+        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-xl overflow-hidden mt-1 sm:mt-4">
           
-          {/* Studio Language Header Bar */}
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_56px_1fr] border-b border-slate-100 bg-slate-50/50 items-center">
-            
-            {/* Source Lang Picker */}
-            <div className="p-4 sm:px-6 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase">From:</span>
+          {/* Studio Language Header Bar (Single Compact Row on all viewports) */}
+          <div className="border-b border-slate-100 bg-slate-50/70 p-2 sm:p-4">
+            <div className="flex items-center justify-between gap-1.5 sm:gap-3">
+              
+              {/* Source Lang Picker */}
+              <div className="flex-1 min-w-0">
                 <select
                   value={sourceLang}
                   onChange={(e) => setSourceLang(e.target.value as SupportedLanguage)}
                   aria-label="Select source language"
-                  className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-sm font-semibold text-slate-800 outline-none hover:border-[#249144] transition shadow-sm cursor-pointer"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-bold text-slate-800 outline-none hover:border-[#249144] transition shadow-2xs cursor-pointer truncate"
                 >
                   {SUPPORTED_LANGUAGE_LIST.map(lang => (
                     <option key={lang.id} value={lang.id}>
@@ -462,46 +485,22 @@ export const TextToTextPage: React.FC = () => {
                 </select>
               </div>
 
-              {/* Context / Domain Dropdown */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-bold text-slate-400 uppercase hidden sm:inline">Context:</span>
-                <select
-                  value={selectedDomain}
-                  onChange={(e) => setSelectedDomain(e.target.value)}
-                  className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-700 outline-none hover:border-[#249144] transition cursor-pointer shadow-2xs"
-                  title="Contextual domain prioritizes vocabulary for specific fields"
-                >
-                  <option value="All">All Domains</option>
-                  <option value="Classroom">Classroom / Education</option>
-                  <option value="Healthcare">Healthcare & Medical</option>
-                  <option value="Animal">Animals & Wildlife</option>
-                  <option value="Agriculture">Agriculture & Nature</option>
-                  <option value="Emergency">Emergency & Relief</option>
-                  <option value="Administration">Village Administration</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Middle Swap Button */}
-            <div className="flex justify-center py-2 md:py-0 border-y md:border-y-0 md:border-x border-slate-200/60 bg-white">
+              {/* Middle Swap Button */}
               <button
                 onClick={handleSwap}
-                className="w-10 h-10 rounded-xl border border-slate-200 bg-slate-50 hover:bg-green-50 hover:text-[#249144] active:scale-95 transition-all flex items-center justify-center text-slate-600 shadow-sm"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 bg-white hover:bg-green-50 hover:text-[#249144] active:scale-90 transition-all flex items-center justify-center text-slate-600 shadow-2xs flex-shrink-0 cursor-pointer"
                 title="Swap source and target languages"
               >
                 <ArrowLeftRight className="w-4 h-4" />
               </button>
-            </div>
 
-            {/* Target Lang Picker */}
-            <div className="p-4 sm:px-6 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-400 uppercase">To:</span>
+              {/* Target Lang Picker */}
+              <div className="flex-1 min-w-0">
                 <select
                   value={targetLang}
                   onChange={(e) => setTargetLang(e.target.value as SupportedLanguage)}
                   aria-label="Select target language"
-                  className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-sm font-semibold text-slate-800 outline-none hover:border-[#249144] transition shadow-sm cursor-pointer"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-bold text-slate-800 outline-none hover:border-[#249144] transition shadow-2xs cursor-pointer truncate"
                 >
                   {SUPPORTED_LANGUAGE_LIST.map(lang => (
                     <option key={lang.id} value={lang.id}>
@@ -511,18 +510,31 @@ export const TextToTextPage: React.FC = () => {
                 </select>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Domain & History Buttons */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <select
+                  value={selectedDomain}
+                  onChange={(e) => setSelectedDomain(e.target.value)}
+                  className="hidden sm:inline-block bg-white border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold text-slate-700 outline-none hover:border-[#249144] transition cursor-pointer"
+                  title="Contextual domain prioritizes vocabulary for specific fields"
+                >
+                  <option value="All">All Domains</option>
+                  <option value="Classroom">Classroom</option>
+                  <option value="Healthcare">Healthcare</option>
+                  <option value="Emergency">Emergency</option>
+                  <option value="Administration">Admin</option>
+                </select>
+
                 <button
                   onClick={() => setShowHistory(!showHistory)}
-                  className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition ${showHistory ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}
+                  className={`p-2 rounded-xl border text-xs font-semibold flex items-center justify-center transition cursor-pointer ${showHistory ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}
                   title="View recent translations"
                 >
-                  <History className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">History</span>
+                  <History className="w-4 h-4" />
                 </button>
               </div>
-            </div>
 
+            </div>
           </div>
 
           {/* Auto-Detection Notification Banner */}
@@ -550,7 +562,7 @@ export const TextToTextPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-200">
             
             {/* Input Box */}
-            <div className="flex flex-col p-6 min-h-[300px] sm:min-h-[360px] justify-between relative">
+            <div className="flex flex-col p-4 sm:p-6 min-h-[160px] sm:min-h-[360px] justify-between relative">
               
               {speechStatus && (
                 <div className="absolute top-2 left-6 right-6 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold flex items-center gap-2 animate-pulse z-10">
@@ -614,7 +626,7 @@ export const TextToTextPage: React.FC = () => {
             </div>
 
             {/* Output Box */}
-            <div className="flex flex-col p-6 min-h-[300px] sm:min-h-[360px] bg-slate-50/40 justify-between">
+            <div className="flex flex-col p-4 sm:p-6 min-h-[160px] sm:min-h-[360px] bg-slate-50/40 justify-between">
               <div>
                 {/* Capability indicator for this language pair */}
                 {/* Target Script Switcher for Santali */}

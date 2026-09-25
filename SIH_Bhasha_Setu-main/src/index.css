@@ -164,3 +164,22 @@ video::cue {
   transform: scale(0.98);
 }
 
+/* Mobile Native App UX Enhancements */
+@media (max-width: 768px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    overscroll-behavior-y: contain;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+.safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.35rem);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+

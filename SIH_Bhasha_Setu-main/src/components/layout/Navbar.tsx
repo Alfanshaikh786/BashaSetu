@@ -65,6 +65,7 @@ export const Navbar: React.FC = () => {
     return getSimulatedOffline();
   });
   const [offlineActivating, setOfflineActivating] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const location = useLocation();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -84,9 +85,10 @@ export const Navbar: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Close mobile menu & dropdowns on route change
+  // Close mobile drawer & dropdowns on route change
   useEffect(() => {
     setMobileMenuOpen(false);
+    setMobileMoreOpen(false);
     setActiveDropdown(null);
   }, [location.pathname]);
 
@@ -141,7 +143,62 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
-      <header className="sticky top-3 z-50 w-[calc(100%-24px)] sm:w-[calc(100%-48px)] max-w-[1440px] mx-auto bg-white/95 backdrop-blur-md border border-[#D5E8D5] rounded-[20px] shadow-[0_4px_20px_-2px_rgba(35,139,69,0.06)] transition-all duration-200">
+      {/* ─── 1. MOBILE NATIVE APP TOP BAR (md:hidden) ─── */}
+      <header className="md:hidden sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-[#D5E8D5] px-4 py-2.5 shadow-2xs safe-top">
+        <div className="flex items-center justify-between">
+          {/* Logo & Tagline */}
+          <Link to="/" className="flex items-center group transition-transform active:scale-95">
+            <BhashaSetuLogo size="sm" />
+          </Link>
+
+          {/* Right Header Quick App Actions */}
+          <div className="flex items-center gap-2">
+            {/* Quick Offline Status Pill */}
+            <button
+              onClick={() => setOfflineModalOpen(true)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition active:scale-95 cursor-pointer shadow-2xs ${
+                isOfflineMode
+                  ? 'bg-orange-50 text-orange-700 border-orange-200'
+                  : 'bg-emerald-50 text-[#238B45] border-[#D5E8D5]'
+              }`}
+              title="Toggle or inspect Offline Mode"
+            >
+              {isOfflineMode ? (
+                <>
+                  <WifiOff className="w-3.5 h-3.5 text-orange-600 animate-pulse" />
+                  <span className="text-[11px] font-bold">Offline</span>
+                </>
+              ) : (
+                <>
+                  <Wifi className="w-3.5 h-3.5 text-[#238B45]" />
+                  <span className="text-[11px] font-bold">Online</span>
+                </>
+              )}
+            </button>
+
+            {/* User Profile Avatar / Sign In */}
+            {currentUser ? (
+              <button
+                onClick={() => setMobileMoreOpen(true)}
+                className="w-8 h-8 rounded-full bg-[#238B45] text-white flex items-center justify-center text-xs font-bold shadow-2xs active:scale-95 transition cursor-pointer"
+                title="Account menu"
+              >
+                {currentUser.name ? currentUser.name[0].toUpperCase() : 'U'}
+              </button>
+            ) : (
+              <button
+                onClick={() => setLoginOpen(true)}
+                className="text-xs font-bold text-[#238B45] border border-[#238B45] px-3 py-1 rounded-xl hover:bg-[#EAF5EA] transition active:scale-95 cursor-pointer"
+              >
+                Login
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* ─── 2. DESKTOP FLOATING NAVBAR (hidden on mobile, unchanged for desktop) ─── */}
+      <header className="hidden md:block sticky top-3 z-50 w-[calc(100%-24px)] sm:w-[calc(100%-48px)] max-w-[1440px] mx-auto bg-white/95 backdrop-blur-md border border-[#D5E8D5] rounded-[20px] shadow-[0_4px_20px_-2px_rgba(35,139,69,0.06)] transition-all duration-200">
         <div ref={dropdownRef} className="w-full px-4 sm:px-6 lg:px-7">
           <div className="flex items-center justify-between h-[68px] sm:h-[72px]">
             
@@ -183,7 +240,7 @@ export const Navbar: React.FC = () => {
                   )}
                 </button>
 
-                {/* Features Mega Panel (Strictly 6 Core Features matching screenshot) */}
+                {/* Features Mega Panel */}
                 {activeDropdown === 'features' && (
                   <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[680px] bg-white rounded-3xl border border-[#D5E8D5] shadow-xl p-6 grid gap-4 animate-in fade-in slide-in-from-top-2 duration-150 z-50">
                     <div className="border-b border-[#D5E8D5] pb-2">
@@ -305,7 +362,7 @@ export const Navbar: React.FC = () => {
                   )}
                 </button>
 
-                {/* Resources Mega Panel (2-item Grid) */}
+                {/* Resources Mega Panel */}
                 {activeDropdown === 'resources' && (
                   <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[640px] bg-white rounded-3xl border border-[#D5E8D5] shadow-xl p-6 grid gap-4 animate-in fade-in slide-in-from-top-2 duration-150 z-50">
                     <div className="border-b border-[#D5E8D5] pb-2">
@@ -355,7 +412,7 @@ export const Navbar: React.FC = () => {
                 )}
               </div>
 
-              {/* 4. Learning Studio Dropdown */}
+              {/* 3. Learning Studio Dropdown */}
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('learning-studio')}
@@ -374,7 +431,7 @@ export const Navbar: React.FC = () => {
                   )}
                 </button>
 
-                {/* Learning Studio Mega Panel - All Features in the Same Line */}
+                {/* Learning Studio Mega Panel */}
                 {activeDropdown === 'learning-studio' && (
                   <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[840px] bg-white rounded-3xl border border-[#D5E8D5] shadow-xl p-6 grid gap-4 animate-in fade-in slide-in-from-top-2 duration-150 z-50">
                     <div className="border-b border-[#D5E8D5] pb-2">
@@ -383,7 +440,6 @@ export const Navbar: React.FC = () => {
                       </span>
                     </div>
 
-                    {/* Features in the Same Horizontal Line (1-Row 3-Cols Grid) */}
                     <div className="grid grid-cols-3 gap-4">
                       {/* Worksheets */}
                       <Link
@@ -434,7 +490,7 @@ export const Navbar: React.FC = () => {
                 )}
               </div>
 
-              {/* 5. About */}
+              {/* 4. About */}
               <Link
                 to="/about-us"
                 className={`font-medium transition-colors py-2 px-3.5 rounded-xl text-sm ${
@@ -490,130 +546,316 @@ export const Navbar: React.FC = () => {
               )}
             </div>
 
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-xl text-[#17212B] hover:bg-[#EAF5EA] transition-colors cursor-pointer"
-              aria-label="Toggle navigation menu"
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6 text-[#17212B]" /> : <Menu className="w-6 h-6 text-[#17212B]" />}
-            </button>
-
           </div>
         </div>
+      </header>
 
-        {/* Mobile Drawer */}
-        {mobileMenuOpen && (
-          <div className="fixed top-[86px] left-3 right-3 max-w-[520px] mx-auto bg-white rounded-[22px] border border-[#D5E8D5] shadow-2xl p-5 md:hidden max-h-[80vh] overflow-y-auto animate-in fade-in slide-in-from-top-4 duration-200 z-50">
-            <div className="flex flex-col gap-2">
-              <Link
-                to="/"
-                onClick={() => setMobileMenuOpen(false)}
-                className="px-4 py-2.5 rounded-xl font-semibold text-[#17212B] hover:bg-[#EAF5EA] hover:text-[#238B45] transition"
+      {/* ─── 3. MOBILE NATIVE BOTTOM TAB BAR (md:hidden) ─── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-[#D5E8D5] shadow-[0_-4px_24px_rgba(0,0,0,0.06)] safe-bottom">
+        <div className="grid grid-cols-5 h-[62px] items-center px-1">
+          {/* Tab 1: Translate */}
+          <Link
+            to="/features/text-to-text"
+            className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
+              location.pathname === '/features/text-to-text' || location.pathname === '/'
+                ? 'text-[#238B45]'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-xl transition-all ${
+              location.pathname === '/features/text-to-text' || location.pathname === '/'
+                ? 'bg-[#EAF5EA]'
+                : ''
+            }`}>
+              <Languages className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">Translate</span>
+          </Link>
+
+          {/* Tab 2: Voice */}
+          <Link
+            to="/features/speech-to-text"
+            className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
+              location.pathname === '/features/speech-to-text'
+                ? 'text-[#238B45]'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-xl transition-all ${
+              location.pathname === '/features/speech-to-text'
+                ? 'bg-[#EAF5EA]'
+                : ''
+            }`}>
+              <Mic className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">Voice</span>
+          </Link>
+
+          {/* Tab 3: Scan */}
+          <Link
+            to="/features/ocr"
+            className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
+              location.pathname === '/features/ocr'
+                ? 'text-[#238B45]'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-xl transition-all ${
+              location.pathname === '/features/ocr'
+                ? 'bg-[#EAF5EA]'
+                : ''
+            }`}>
+              <ScanText className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">Scan</span>
+          </Link>
+
+          {/* Tab 4: Dictionary */}
+          <Link
+            to="/resources/dictionary"
+            className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
+              location.pathname === '/resources/dictionary'
+                ? 'text-[#238B45]'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-xl transition-all ${
+              location.pathname === '/resources/dictionary'
+                ? 'bg-[#EAF5EA]'
+                : ''
+            }`}>
+              <BookOpen className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">Dictionary</span>
+          </Link>
+
+          {/* Tab 5: More / Drawer */}
+          <button
+            onClick={() => setMobileMoreOpen(!mobileMoreOpen)}
+            className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 cursor-pointer ${
+              mobileMoreOpen || location.pathname.startsWith('/features/learning-studio') || location.pathname === '/about-us'
+                ? 'text-[#238B45]'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-xl transition-all ${
+              mobileMoreOpen ? 'bg-[#EAF5EA]' : ''
+            }`}>
+              <Menu className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">More</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* ─── 4. MOBILE SLIDE-UP BOTTOM SHEET (More Drawer) ─── */}
+      {mobileMoreOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex flex-col justify-end animate-in fade-in duration-200"
+          onClick={(e) => { if (e.target === e.currentTarget) setMobileMoreOpen(false); }}
+        >
+          <div className="bg-white rounded-t-[28px] border-t border-[#D5E8D5] max-h-[82vh] overflow-y-auto safe-bottom shadow-2xl p-5 animate-in slide-in-from-bottom duration-200">
+            {/* Sheet Drag Handle */}
+            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
+
+            {/* Header info */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <BhashaSetuLogo size="sm" />
+              </div>
+              <button
+                onClick={() => setMobileMoreOpen(false)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               >
-                Home
-              </Link>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              {/* Learning Studio (Prominent Mobile Placement) */}
-              <div className="border-t border-[#D5E8D5] pt-2">
-                <p className="px-4 py-1 text-[11px] font-bold text-[#238B45] uppercase tracking-wider flex items-center gap-1.5">
-                  <GraduationCap className="w-4 h-4 text-[#238B45]" />
-                  <span>Learning Studio (New)</span>
-                </p>
-                <div className="grid gap-1 mt-1 pl-2">
-                  <Link 
-                    to="/features/learning-studio?tab=flashcards" 
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="px-3 py-2 text-xs sm:text-sm text-[#17212B] hover:text-[#238B45] hover:bg-[#EAF5EA] rounded-lg flex items-center gap-2"
-                  >
-                    <Layers className="w-4 h-4 text-[#238B45]" /> 3D Audio Flashcards
-                  </Link>
-                  <Link 
-                    to="/features/learning-studio?tab=worksheets" 
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="px-3 py-2 text-xs sm:text-sm text-[#17212B] hover:text-[#238B45] hover:bg-[#EAF5EA] rounded-lg flex items-center gap-2"
-                  >
-                    <FileText className="w-4 h-4 text-[#238B45]" /> Printable Worksheets Generator
-                  </Link>
-                  <Link 
-                    to="/features/learning-studio?tab=assessment" 
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="px-3 py-2 text-xs sm:text-sm text-[#17212B] hover:text-[#238B45] hover:bg-[#EAF5EA] rounded-lg flex items-center gap-2"
-                  >
-                    <Target className="w-4 h-4 text-[#238B45]" /> Quiz and Assessment
-                  </Link>
+            {/* User Profile Card */}
+            {currentUser ? (
+              <div className="mt-3 p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#238B45] text-white flex items-center justify-center font-bold text-sm">
+                    {currentUser.name ? currentUser.name[0].toUpperCase() : 'U'}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">{currentUser.name || 'User'}</p>
+                    <p className="text-[11px] text-slate-500 truncate max-w-[180px]">{currentUser.email}</p>
+                  </div>
                 </div>
-              </div>
-
-              {/* Features List (Strictly 6 Core Features) */}
-              <div className="border-t border-[#D5E8D5] pt-2">
-                <p className="px-4 py-1 text-[11px] font-bold text-[#667085] uppercase tracking-wider">Features</p>
-                <div className="grid gap-1 mt-1 pl-2">
-                  <Link to="/features/text-to-text" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 text-xs sm:text-sm text-[#17212B] hover:bg-[#EAF5EA] hover:text-[#238B45] rounded-lg flex items-center gap-2">
-                    <Languages className="w-4 h-4 text-[#238B45]" /> Text to Text Translation
-                  </Link>
-                  <Link to="/features/ocr" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 text-xs sm:text-sm text-[#17212B] hover:bg-[#EAF5EA] hover:text-[#238B45] rounded-lg flex items-center gap-2">
-                    <ScanText className="w-4 h-4 text-[#238B45]" /> OCR
-                  </Link>
-                  <Link to="/features/speech-to-text" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 text-xs sm:text-sm text-[#17212B] hover:bg-[#EAF5EA] hover:text-[#238B45] rounded-lg flex items-center gap-2">
-                    <Mic className="w-4 h-4 text-[#238B45]" /> Speech to Text
-                  </Link>
-                  <Link to="/features/speech-to-speech" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 text-xs sm:text-sm text-[#17212B] hover:bg-[#EAF5EA] hover:text-[#238B45] rounded-lg flex items-center gap-2">
-                    <Radio className="w-4 h-4 text-[#238B45]" /> Voice to Voice
-                  </Link>
-                  <Link to="/features/text-to-speech" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 text-xs sm:text-sm text-[#17212B] hover:bg-[#EAF5EA] hover:text-[#238B45] rounded-lg flex items-center gap-2">
-                    <Volume2 className="w-4 h-4 text-[#238B45]" /> Text to Speech
-                  </Link>
-                  <Link to="/features/video-subtitle" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 text-xs sm:text-sm text-[#17212B] hover:bg-[#EAF5EA] hover:text-[#238B45] rounded-lg flex items-center gap-2">
-                    <Video className="w-4 h-4 text-[#238B45]" /> Video Subtitle
-                  </Link>
-                </div>
-              </div>
-
-              {/* Resources List */}
-              <div className="border-t border-[#D5E8D5] pt-2">
-                <p className="px-4 py-1 text-[11px] font-bold text-[#667085] uppercase tracking-wider">Resources & Knowledge</p>
-                <div className="grid gap-1 mt-1 pl-2">
-                  <Link to="/resources/dictionary" onClick={() => setMobileMenuOpen(false)} className="px-3 py-2 text-xs sm:text-sm text-[#17212B] hover:bg-[#EAF5EA] hover:text-[#238B45] rounded-lg flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-[#238B45]" /> Multilingual Dictionary
-                  </Link>
-                  <button 
-                    onClick={() => { setOfflineModalOpen(true); setMobileMenuOpen(false); }}
-                    className="px-3 py-2 text-xs sm:text-sm text-[#17212B] hover:bg-[#EAF5EA] hover:text-[#238B45] rounded-lg flex items-center gap-2 w-full text-left cursor-pointer"
-                  >
-                    <Target className="w-4 h-4 text-[#238B45]" /> Offline Mode
-                  </button>
-                </div>
-              </div>
-
-              <div className="border-t border-[#D5E8D5] pt-3 flex flex-col gap-2">
                 <button
                   onClick={() => {
-                    setMobileMenuOpen(false);
-                    window.dispatchEvent(new CustomEvent('trigger-pwa-install'));
+                    logoutUser();
+                    setCurrentUser(null);
                   }}
-                  className="w-full py-2.5 text-center text-xs sm:text-sm font-bold rounded-xl bg-[#238B45] text-white flex items-center justify-center gap-2 shadow-xs cursor-pointer hover:bg-[#176B3A] transition"
+                  className="text-xs font-semibold text-red-600 hover:bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-200 transition cursor-pointer"
                 >
-                  <Smartphone className="w-4 h-4" />
-                  <span>Download App</span>
+                  Logout
                 </button>
-                <Link to="/about-us" className="px-4 py-2 text-sm font-medium text-[#17212B] hover:bg-[#EAF5EA] rounded-xl text-center">
-                  About Us
-                </Link>
+              </div>
+            ) : (
+              <div className="mt-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Sign in to sync your work</p>
+                  <p className="text-[11px] text-slate-500">History, saved words & classroom drills</p>
+                </div>
                 <button
                   onClick={() => {
-                    setMobileMenuOpen(false);
+                    setMobileMoreOpen(false);
                     setLoginOpen(true);
                   }}
-                  className="w-full py-2.5 text-center text-sm font-semibold rounded-xl border border-[#238B45] text-[#238B45] hover:bg-[#EAF5EA] transition cursor-pointer"
+                  className="text-xs font-bold bg-[#238B45] text-white px-3.5 py-1.5 rounded-xl hover:bg-[#176B3A] transition cursor-pointer"
                 >
-                  Login
+                  Sign In
                 </button>
               </div>
+            )}
+
+            {/* Section 1: Learning Studio */}
+            <div className="mt-4">
+              <span className="text-[10px] font-bold text-[#238B45] uppercase tracking-wider flex items-center gap-1 mb-2">
+                <GraduationCap className="w-3.5 h-3.5" /> Learning & Classroom Studio
+              </span>
+              <div className="grid grid-cols-1 gap-2">
+                <Link
+                  to="/features/learning-studio?tab=flashcards"
+                  onClick={() => setMobileMoreOpen(false)}
+                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-[#F4FAF3] transition"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
+                    <Layers className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">3D Audio Flashcards</p>
+                    <p className="text-[10px] text-slate-500">Interactive visual cards with native speech</p>
+                  </div>
+                </Link>
+
+                <Link
+                  to="/features/learning-studio?tab=worksheets"
+                  onClick={() => setMobileMoreOpen(false)}
+                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-[#F4FAF3] transition"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Classroom Worksheets</p>
+                    <p className="text-[10px] text-slate-500">Printable A4 tribal language exercises</p>
+                  </div>
+                </Link>
+
+                <Link
+                  to="/features/learning-studio?tab=assessment"
+                  onClick={() => setMobileMoreOpen(false)}
+                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-[#F4FAF3] transition"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
+                    <Award className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Quiz & Assessments</p>
+                    <p className="text-[10px] text-slate-500">Language fluency tests & certifications</p>
+                  </div>
+                </Link>
+              </div>
+            </div>
+
+            {/* Section 2: Advanced Speech & Audio Tools */}
+            <div className="mt-4">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">
+                Speech & Audio Tools
+              </span>
+              <div className="grid grid-cols-1 gap-2">
+                <Link
+                  to="/features/speech-to-speech"
+                  onClick={() => setMobileMoreOpen(false)}
+                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-[#F4FAF3] transition"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
+                    <Radio className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Voice to Voice</p>
+                    <p className="text-[10px] text-slate-500">Two-way conversational dialogue</p>
+                  </div>
+                </Link>
+
+                <Link
+                  to="/features/text-to-speech"
+                  onClick={() => setMobileMoreOpen(false)}
+                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-[#F4FAF3] transition"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
+                    <Volume2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Text to Speech</p>
+                    <p className="text-[10px] text-slate-500">Listen in native tribal accents</p>
+                  </div>
+                </Link>
+
+                <Link
+                  to="/features/video-subtitle"
+                  onClick={() => setMobileMoreOpen(false)}
+                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-[#F4FAF3] transition"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
+                    <Video className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Video Subtitle</p>
+                    <p className="text-[10px] text-slate-500">Subtitles for video lessons</p>
+                  </div>
+                </Link>
+              </div>
+            </div>
+
+            {/* Section 3: App Controls & Offline */}
+            <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  setMobileMoreOpen(false);
+                  setOfflineModalOpen(true);
+                }}
+                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition text-left cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+                    <WifiOff className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Offline Mode Center</p>
+                    <p className="text-[10px] text-slate-500">Manage 8 offline modules & SQLite DB</p>
+                  </div>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isOfflineMode ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                  {isOfflineMode ? 'Active' : 'Ready'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setMobileMoreOpen(false);
+                  window.dispatchEvent(new CustomEvent('trigger-pwa-install'));
+                }}
+                className="w-full py-2.5 rounded-xl bg-[#238B45] hover:bg-[#176B3A] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs cursor-pointer active:scale-98 transition"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>Install Mobile App (PWA)</span>
+              </button>
+
+              <Link
+                to="/about-us"
+                onClick={() => setMobileMoreOpen(false)}
+                className="text-center py-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
+              >
+                About Bhasha Setu & Project Mission
+              </Link>
             </div>
           </div>
-        )}
-      </header>
+        </div>
+      )}
 
       {/* Login Modal */}
       <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} />

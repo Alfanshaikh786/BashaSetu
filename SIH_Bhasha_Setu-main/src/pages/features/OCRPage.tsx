@@ -241,11 +241,22 @@ export const OCRPage: React.FC = () => {
   };
 
   return (
-    <section className="min-h-screen bg-slate-50/50 pt-28 pb-20 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <section className="min-h-screen bg-slate-50/50 pt-2 sm:pt-28 pb-16 sm:pb-20 px-2.5 sm:px-6 lg:px-8 font-sans">
+      <div className="max-w-6xl mx-auto space-y-3 sm:space-y-6">
         
-        {/* Header */}
-        <div className="w-full py-4 flex flex-col items-center text-center space-y-3">
+        {/* Mobile Compact Header Bar (md:hidden) */}
+        <div className="md:hidden flex items-center justify-between py-2 px-1">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#249144] animate-pulse" />
+            <h1 className="domine-bold text-base font-bold text-slate-900 tracking-tight">Camera & Document OCR</h1>
+          </div>
+          <span className="text-[10px] font-bold bg-green-50 text-[#14532d] px-2 py-0.5 rounded-full border border-green-200">
+            Multi-Script
+          </span>
+        </div>
+
+        {/* Desktop Detailed Header (hidden on mobile) */}
+        <div className="hidden md:flex w-full py-4 flex-col items-center text-center space-y-3">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-green-50 border border-[#d1ead4] text-xs font-bold text-[#14532d]">
             <Sparkles className="w-3.5 h-3.5 text-[#249144]" /> Multi-Script OCR & Document Scanner
           </div>

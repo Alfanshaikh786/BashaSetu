@@ -10,7 +10,12 @@ interface BeforeInstallPromptEvent extends Event {
 export const PWAInstallPrompt: React.FC = () => {
   const location = useLocation();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showFloatingBadge, setShowFloatingBadge] = useState(true);
+  const [showFloatingBadge, setShowFloatingBadge] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('bhasha_pwa_dismissed') !== 'true';
+    }
+    return true;
+  });
   const [isInstalled, setIsInstalled] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [activeDeviceTab, setActiveDeviceTab] = useState<'desktop' | 'android' | 'ios'>('desktop');
@@ -19,6 +24,13 @@ export const PWAInstallPrompt: React.FC = () => {
   if (location.pathname.startsWith('/features/video-subtitle')) {
     return null;
   }
+
+  const dismissBadge = () => {
+    setShowFloatingBadge(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('bhasha_pwa_dismissed', 'true');
+    }
+  };
 
   useEffect(() => {
     // Detect if already installed / running in standalone mode
@@ -47,7 +59,7 @@ export const PWAInstallPrompt: React.FC = () => {
 
     const handleAppInstalled = () => {
       setIsInstalled(true);
-      setShowFloatingBadge(false);
+      dismissBadge();
       setShowModal(false);
       setDeferredPrompt(null);
     };
@@ -60,7 +72,7 @@ export const PWAInstallPrompt: React.FC = () => {
         deferredPrompt.prompt().then(() => {
           deferredPrompt.userChoice.then((res) => {
             if (res.outcome === 'accepted') {
-              setShowFloatingBadge(false);
+              dismissBadge();
               setDeferredPrompt(null);
             }
           });
@@ -87,7 +99,7 @@ export const PWAInstallPrompt: React.FC = () => {
         await deferredPrompt.prompt();
         const choice = await deferredPrompt.userChoice;
         if (choice.outcome === 'accepted') {
-          setShowFloatingBadge(false);
+          dismissBadge();
           setShowModal(false);
           setDeferredPrompt(null);
           return;
@@ -104,10 +116,10 @@ export const PWAInstallPrompt: React.FC = () => {
 
   return (
     <>
-      {/* Floating Bottom-Right Install Badge */}
+      {/* Floating Bottom-Right Install Badge (Desktop only, mobile has it in top bar and More drawer) */}
       {showFloatingBadge && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300 print:hidden">
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl p-4 border border-emerald-200 shadow-2xl flex items-center gap-3.5 max-w-sm">
+        <div className="hidden md:block fixed bottom-6 right-6 z-40 animate-in fade-in slide-in-from-bottom-5 duration-300 print:hidden">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-emerald-200 shadow-2xl flex items-center gap-3 max-w-sm">
             <div className="w-11 h-11 rounded-xl bg-[#249144] text-white flex items-center justify-center flex-shrink-0 shadow-md">
               <Smartphone className="w-6 h-6" />
             </div>
@@ -131,7 +143,7 @@ export const PWAInstallPrompt: React.FC = () => {
                 <span>Install</span>
               </button>
               <button
-                onClick={() => setShowFloatingBadge(false)}
+                onClick={dismissBadge}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
                 title="Dismiss"
               >

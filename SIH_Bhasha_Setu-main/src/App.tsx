@@ -93,11 +93,11 @@ const PageLoadingFallback: React.FC = () => (
   </div>
 );
 
-/** Layout wrapper for all pages that use the standard floating top Navbar */
+/** Layout wrapper for all pages with mobile app navigation clearance */
 const WithNavbar: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="min-h-screen flex flex-col bg-[#F8FBF7] text-[#17212B]">
     <Navbar />
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col pb-20 md:pb-0">
       {children}
     </div>
   </div>

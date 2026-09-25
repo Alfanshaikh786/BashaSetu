@@ -14,7 +14,7 @@ import {
 
 export const HowItWorksSection: React.FC = () => {
   return (
-    <section id="how-it-works" className="py-20 lg:py-28 px-4 sm:px-6 lg:px-8 bg-[#F8FBF7] border-t border-[#D5E8D5] relative overflow-hidden">
+    <section id="how-it-works" className="py-10 sm:py-20 lg:py-28 px-4 sm:px-6 lg:px-8 bg-[#F8FBF7] border-t border-[#D5E8D5] relative overflow-hidden">
       
       {/* Decorative Botanical Foliage in Background */}
       <div className="absolute top-12 -right-8 w-56 h-56 pointer-events-none opacity-20 select-none -z-10">

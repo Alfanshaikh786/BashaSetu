@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen } from 'lucide-react';
+import { ArrowRight, BookOpen, Languages, ScanText, Mic, Radio, Volume2, Video, GraduationCap } from 'lucide-react';
 
 interface FeatureCardProps {
   title: string;
@@ -75,7 +75,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
 
 export const FeaturesSection: React.FC = () => {
   return (
-    <section id="features" className="py-20 lg:py-28 px-4 sm:px-6 lg:px-8 bg-[#F8FBF7] relative overflow-hidden">
+    <section id="features" className="py-10 sm:py-20 lg:py-28 px-4 sm:px-6 lg:px-8 bg-[#F8FBF7] relative overflow-hidden">
       
       {/* Decorative Botanical Foliage in Background */}
       <div className="absolute top-12 -left-8 w-56 h-56 pointer-events-none opacity-35 select-none -z-10">
@@ -99,12 +99,12 @@ export const FeaturesSection: React.FC = () => {
       </div>
 
       {/* Header Banner */}
-      <div className="max-w-4xl mx-auto flex flex-col items-center text-center mb-10 sm:mb-14 relative z-10">
+      <div className="max-w-4xl mx-auto flex flex-col items-center text-center mb-8 sm:mb-14 relative z-10">
         
         {/* Open Book Icon in Circular Green Disc with Foliage */}
         <div className="relative mb-3 flex items-center justify-center">
-          <div className="w-14 h-14 rounded-full bg-[#EAF5EA] border border-[#D5E8D5] flex items-center justify-center shadow-xs">
-            <BookOpen className="w-7 h-7 text-[#238B45]" />
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#EAF5EA] border border-[#D5E8D5] flex items-center justify-center shadow-xs">
+            <BookOpen className="w-6 h-6 sm:w-7 sm:h-7 text-[#238B45]" />
           </div>
           {/* Leaf sprigs flanking the disc */}
           <div className="absolute -left-5 top-1 w-6 h-6">
@@ -122,38 +122,69 @@ export const FeaturesSection: React.FC = () => {
         </div>
 
         {/* Title */}
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#17212B] tracking-tight" style={{ fontFamily: "'Domine', Georgia, serif" }}>
+        <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold text-[#17212B] tracking-tight" style={{ fontFamily: "'Domine', Georgia, serif" }}>
           Our <span className="text-[#238B45]">Features</span>
         </h2>
         
         {/* Horizontal Divider with Centered Green Accent */}
-        <div className="relative mt-3.5 w-36 sm:w-48 h-[2px] bg-[#D5E8D5]">
-          <div className="absolute left-1/2 -translate-x-1/2 -top-[1px] h-[4px] w-16 sm:w-20 bg-[#238B45] rounded-full" />
+        <div className="relative mt-2.5 sm:mt-3.5 w-32 sm:w-48 h-[2px] bg-[#D5E8D5]">
+          <div className="absolute left-1/2 -translate-x-1/2 -top-[1px] h-[4px] w-14 sm:w-20 bg-[#238B45] rounded-full" />
         </div>
 
         {/* Subtitle */}
-        <p className="mt-4 text-sm sm:text-base md:text-lg text-[#667085] max-w-xl font-sans">
+        <p className="mt-3 sm:mt-4 text-xs sm:text-base md:text-lg text-[#667085] max-w-xl font-sans">
           Discover the powerful capabilities of our translation platform.
         </p>
 
         {/* Curved Brush Stroke Accent */}
-        <svg viewBox="0 0 160 12" className="w-36 sm:w-44 h-3 mt-2">
+        <svg viewBox="0 0 160 12" className="w-32 sm:w-44 h-3 mt-1.5 sm:mt-2">
           <path d="M 5 6 Q 80 10, 155 4" fill="none" stroke="#238B45" strokeWidth="2" strokeLinecap="round" opacity="0.35" />
         </svg>
 
       </div>
 
       {/* Cursive Pill Badge */}
-      <div className="max-w-6xl mx-auto flex justify-center mb-8">
-        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-[#EAF5EA] border border-[#D5E8D5] shadow-2xs">
-          <span className="font-handwriting text-xl sm:text-2xl text-[#17212B] font-semibold tracking-wide">
+      <div className="max-w-6xl mx-auto flex justify-center mb-6 sm:mb-8">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 sm:px-5 sm:py-2 rounded-full bg-[#EAF5EA] border border-[#D5E8D5] shadow-2xs">
+          <span className="font-handwriting text-lg sm:text-2xl text-[#17212B] font-semibold tracking-wide">
             Different Languages A Brighter Tomorrow
           </span>
         </div>
       </div>
 
-      {/* Grid of 6 Features */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 relative z-10">
+      {/* Mobile-Only App Services Grid (md:hidden) */}
+      <div className="md:hidden max-w-6xl mx-auto grid grid-cols-2 gap-2.5 mb-8">
+        {[
+          { title: "Text Translation", sub: "Bidirectional AI engine", link: "/features/text-to-text", icon: <Languages className="w-5 h-5 text-[#238B45]" />, bg: "bg-emerald-50" },
+          { title: "Camera OCR", sub: "Scan tribal manuscripts", link: "/features/ocr", icon: <ScanText className="w-5 h-5 text-amber-600" />, bg: "bg-amber-50" },
+          { title: "Speech to Text", sub: "Live IndicConformer ASR", link: "/features/speech-to-text", icon: <Mic className="w-5 h-5 text-blue-600" />, bg: "bg-blue-50" },
+          { title: "Voice to Voice", sub: "Two-way conversation", link: "/features/speech-to-speech", icon: <Radio className="w-5 h-5 text-indigo-600" />, bg: "bg-indigo-50" },
+          { title: "Text to Speech", sub: "Native phonetic voice", link: "/features/text-to-speech", icon: <Volume2 className="w-5 h-5 text-teal-600" />, bg: "bg-teal-50" },
+          { title: "Video Subtitles", sub: "Bilingual SRT subtitles", link: "/features/video-subtitle", icon: <Video className="w-5 h-5 text-rose-600" />, bg: "bg-rose-50" },
+          { title: "Learning Studio", sub: "3D flashcards & drills", link: "/features/learning-studio", icon: <GraduationCap className="w-5 h-5 text-purple-600" />, bg: "bg-purple-50" },
+          { title: "Tribal Lexicon", sub: "6,780+ dictionary words", link: "/resources/dictionary", icon: <BookOpen className="w-5 h-5 text-[#238B45]" />, bg: "bg-emerald-50" },
+        ].map((feat) => (
+          <Link
+            key={feat.title}
+            to={feat.link}
+            className="p-3 bg-white rounded-2xl border border-[#D5E8D5] shadow-2xs hover:shadow-xs flex flex-col justify-between gap-2.5 active:scale-95 transition"
+          >
+            <div className="flex items-center justify-between">
+              <div className={`w-8 h-8 rounded-xl ${feat.bg} flex items-center justify-center`}>
+                {feat.icon}
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-slate-800 tracking-tight leading-snug">{feat.title}</h3>
+              <p className="text-[10px] text-slate-500 leading-tight mt-0.5">{feat.sub}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+
+      {/* Desktop Grid of 6 Detailed Features (hidden md:grid) */}
+      <div className="hidden md:grid max-w-6xl mx-auto grid-cols-2 gap-6 sm:gap-8 relative z-10">
         
         {/* 1. Text to Text Translation */}
         <FeatureCard

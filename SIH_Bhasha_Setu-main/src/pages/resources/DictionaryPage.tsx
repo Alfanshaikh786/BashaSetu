@@ -157,11 +157,26 @@ export const DictionaryPage: React.FC = () => {
   }, [filteredEntries, currentPage, itemsPerPage]);
 
   return (
-    <section className="min-h-screen bg-slate-50/50 pt-28 pb-20 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto space-y-10">
+    <section className="min-h-screen bg-slate-50/50 pt-2 sm:pt-28 pb-16 sm:pb-20 px-2.5 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto space-y-3 sm:space-y-10">
         
-        {/* Section Header (Exact Match to User Screenshot 2) */}
-        <div className="w-full flex flex-col items-center text-center space-y-3">
+        {/* Mobile Compact Header Bar (md:hidden) */}
+        <div className="md:hidden flex items-center justify-between py-2 px-1">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#249144] animate-pulse" />
+            <h1 className="domine-bold text-base font-bold text-slate-900 tracking-tight">Tribal Lexicon & Dictionary</h1>
+          </div>
+          <button
+            onClick={() => setShowContributeModal(true)}
+            className="px-2.5 py-1 bg-green-50 border border-green-200 text-[#14532d] text-[11px] font-bold rounded-xl shadow-2xs flex items-center gap-1 cursor-pointer active:scale-95"
+          >
+            <PlusCircle className="w-3 h-3 text-[#249144]" />
+            <span>Add Word</span>
+          </button>
+        </div>
+
+        {/* Desktop Detailed Header (hidden on mobile) */}
+        <div className="hidden md:flex w-full flex-col items-center text-center space-y-3">
           <h1 className="domine-bold text-3xl sm:text-4xl md:text-5xl font-bold leading-tight text-slate-900">
             Dictionary
           </h1>
@@ -176,9 +191,8 @@ export const DictionaryPage: React.FC = () => {
           </p>
         </div>
 
-
         {/* Interactive Searchable Lexicon Explorer */}
-        <div className="border-t border-slate-200/80 pt-10 space-y-6">
+        <div className="border-t border-slate-200/80 pt-2 sm:pt-10 space-y-4 sm:space-y-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-slate-900 domine-bold tracking-tight">
