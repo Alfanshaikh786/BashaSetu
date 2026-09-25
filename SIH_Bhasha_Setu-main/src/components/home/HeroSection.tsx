@@ -1,11 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
-import { InteractiveHeroPhone } from './InteractiveHeroPhone';
+import { ArrowRight, Sparkles } from 'lucide-react';
 
 export const HeroSection: React.FC = () => {
   return (
-    <section className="relative min-h-[85vh] lg:min-h-[90vh] w-full bg-[#F8FBF7] pt-20 pb-16 lg:pt-14 lg:pb-24 overflow-hidden flex items-center">
+    <section className="relative min-h-[75vh] lg:min-h-[80vh] w-full bg-[#F8FBF7] pt-20 pb-20 lg:pt-24 lg:pb-28 overflow-hidden flex items-center justify-center">
       
       {/* Soft Botanical Leafy Motifs (Top-Right & Bottom-Left) */}
       <div className="absolute -top-6 right-0 w-64 h-64 sm:w-80 sm:h-80 pointer-events-none opacity-40 select-none -z-10">
@@ -31,39 +30,38 @@ export const HeroSection: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-8">
+        <div className="flex flex-col space-y-6 sm:space-y-8 max-w-2xl lg:max-w-3xl text-left items-start">
           
-          {/* Left Column: Heading, Subtitle & CTA */}
-          <div className="flex flex-col space-y-6 sm:space-y-8 lg:col-span-6 xl:col-span-7 text-center lg:text-left items-center lg:items-start">
-            
-            <h1 className="text-4xl sm:text-5xl md:text-6xl xl:text-7xl font-bold leading-[1.12] tracking-tight text-[#17212B]" style={{ fontFamily: "'Domine', Georgia, serif" }}>
-              Translate{' '}
-              <span className="text-[#238B45]">
-                Anything
-              </span>
-              <br />
-              Instantly with AI
-            </h1>
-
-            <p className="max-w-lg text-base text-[#667085] sm:text-lg md:text-xl font-normal leading-relaxed font-sans">
-              Type or speak. Get translation in your language instantly.
-            </p>
-
-            <div className="pt-2 w-full sm:w-auto">
-              <Link
-                to="/features/text-to-text"
-                className="bg-[#238B45] hover:bg-[#176B3A] text-white px-8 py-3.5 text-base font-semibold rounded-[12px] inline-flex items-center gap-2.5 shadow-xs transition-all duration-200 group w-full sm:w-auto justify-center cursor-pointer active:scale-98"
-              >
-                <span>Try Translation Now</span>
-                <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
-              </Link>
-            </div>
-
+          {/* Top Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EAF5EA] border border-[#D5E8D5] text-[#238B45] text-xs sm:text-sm font-semibold shadow-2xs">
+            <Sparkles className="w-4 h-4 text-[#238B45]" />
+            <span>Offline-First Multidirectional Tribal Translation</span>
           </div>
 
-          {/* Right Column: Working Smartphone Translation Mockup */}
-          <div className="w-full lg:col-span-6 xl:col-span-5 flex items-center justify-center lg:justify-end">
-            <InteractiveHeroPhone />
+          {/* Main Heading */}
+          <h1 className="text-4xl sm:text-5xl md:text-6xl xl:text-7xl font-bold leading-[1.12] tracking-tight text-[#17212B]" style={{ fontFamily: "'Domine', Georgia, serif" }}>
+            Translate{' '}
+            <span className="text-[#238B45]">
+              Anything
+            </span>
+            <br />
+            Instantly with AI
+          </h1>
+
+          {/* Subtitle */}
+          <p className="max-w-xl text-base text-[#667085] sm:text-lg md:text-xl font-normal leading-relaxed font-sans">
+            Type, speak, or scan. Seamless linguistic bridge for tribal languages with verified on-device offline translation and zero network dependency.
+          </p>
+
+          {/* Action Button */}
+          <div className="pt-2 w-full sm:w-auto">
+            <Link
+              to="/features/text-to-text"
+              className="bg-[#238B45] hover:bg-[#176B3A] text-white px-8 py-3.5 text-base font-semibold rounded-[12px] inline-flex items-center gap-2.5 shadow-xs transition-all duration-200 group w-full sm:w-auto justify-center cursor-pointer active:scale-98"
+            >
+              <span>Try Translation Now</span>
+              <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
+            </Link>
           </div>
 
         </div>
