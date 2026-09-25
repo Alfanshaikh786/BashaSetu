@@ -10,26 +10,12 @@ interface BeforeInstallPromptEvent extends Event {
 export const PWAInstallPrompt: React.FC = () => {
   const location = useLocation();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showFloatingBadge, setShowFloatingBadge] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('bhasha_pwa_dismissed') !== 'true';
-    }
-    return true;
-  });
   const [isInstalled, setIsInstalled] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [activeDeviceTab, setActiveDeviceTab] = useState<'desktop' | 'android' | 'ios'>('desktop');
 
-  // Suppress PWA install badge on Video Subtitle page to prevent covering controls
-  if (location.pathname.startsWith('/features/video-subtitle')) {
-    return null;
-  }
-
   const dismissBadge = () => {
-    setShowFloatingBadge(false);
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('bhasha_pwa_dismissed', 'true');
-    }
+    // No-op kept for event handlers
   };
 
   useEffect(() => {
@@ -116,44 +102,6 @@ export const PWAInstallPrompt: React.FC = () => {
 
   return (
     <>
-      {/* Floating Bottom-Right Install Badge (Desktop only, mobile has it in top bar and More drawer) */}
-      {showFloatingBadge && (
-        <div className="hidden md:block fixed bottom-6 right-6 z-40 animate-in fade-in slide-in-from-bottom-5 duration-300 print:hidden">
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-emerald-200 shadow-2xl flex items-center gap-3 max-w-sm">
-            <div className="w-11 h-11 rounded-xl bg-[#249144] text-white flex items-center justify-center flex-shrink-0 shadow-md">
-              <Smartphone className="w-6 h-6" />
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <h4 className="text-xs font-bold text-slate-900 leading-tight truncate flex items-center gap-1.5">
-                <span>Install Bhasha Setu</span>
-                <span className="text-[9px] bg-green-100 text-[#14532d] px-1.5 py-0.2 rounded-full font-bold">App</span>
-              </h4>
-              <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                Full-screen app mode & offline speed
-              </p>
-            </div>
-
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button
-                onClick={handleInstallNow}
-                className="px-3.5 py-1.5 bg-[#249144] hover:bg-[#1a7536] text-white text-xs font-bold rounded-xl shadow-xs transition active:scale-95 flex items-center gap-1 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Install</span>
-              </button>
-              <button
-                onClick={dismissBadge}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer"
-                title="Dismiss"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Guided App Installation Modal */}
       {showModal && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 print:hidden animate-in fade-in duration-200">

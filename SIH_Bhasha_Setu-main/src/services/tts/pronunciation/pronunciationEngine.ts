@@ -14,6 +14,7 @@
  */
 
 import { lookupExactDatasetEntry, CORE_VOCABULARY } from '../../../data/santaliDataset';
+import { lookupExactMundariEntry } from '../../../data/mundariDataset';
 import { BASE_DICTIONARY_ENTRIES } from '../../../data/dictionaryData';
 import {
   transliterateOlChikiPhonetic,
@@ -114,7 +115,8 @@ export class PronunciationEngine {
   ): PronunciationRecord {
     const lang = langCode.toLowerCase().trim();
     const isSantali = lang === 'sat' || lang === 'santali';
-    const isFutureTribal = lang === 'unr' || lang === 'hoc' || lang === 'mundari' || lang === 'ho';
+    const isMundari = lang === 'unr' || lang === 'mundari' || lang === 'mun';
+    const isFutureTribal = lang === 'hoc' || lang === 'ho';
     const isHindi = lang === 'hin' || lang === 'hindi';
     const isEnglish = lang === 'eng' || lang === 'english' || lang === 'en';
 
@@ -122,7 +124,41 @@ export class PronunciationEngine {
     const normalizedText = normalizeTextForSpeech(rawText, lang);
     const cleanNoPunct = normalizedText.replace(/[᱾᱿•()]/g, '').trim();
 
-    // Check for future tribal languages (Mundari unr, Ho hoc)
+    // --- MUNDARI PIPELINE ---
+    if (isMundari) {
+      const match = lookupExactMundariEntry(cleanNoPunct, 'mun') || lookupExactMundariEntry(rawText.trim(), 'mun');
+      if (match && match.roman) {
+        const spoken = match.roman.trim();
+        return {
+          language: langCode,
+          sourceText: rawText,
+          normalizedText,
+          spokenText: spoken,
+          phoneticRepresentation: spoken,
+          syllables: spoken.split(/\s+/).flatMap(w => segmentWordIntoSyllables(w)),
+          quality: 'DATASET',
+          rulesVersion: PRONUNCIATION_ENGINE_VERSION,
+          notes: `Mundari dataset match from entry ${match.id}`
+        };
+      }
+
+      if (/[\u0900-\u097F]/.test(rawText)) {
+        const spoken = transliterateDevanagariToRoman(normalizedText);
+        return {
+          language: langCode,
+          sourceText: rawText,
+          normalizedText,
+          spokenText: spoken,
+          phoneticRepresentation: spoken,
+          syllables: spoken.split(/\s+/).flatMap(w => segmentWordIntoSyllables(w)),
+          quality: 'RULE_BASED',
+          rulesVersion: PRONUNCIATION_ENGINE_VERSION,
+          notes: 'Mundari Devanagari phonetic Roman bridge'
+        };
+      }
+    }
+
+    // Check for future tribal languages (Ho hoc)
     if (isFutureTribal && !containsOlChiki(rawText)) {
       return {
         language: langCode,
@@ -267,13 +303,33 @@ export class PronunciationEngine {
         };
       }
 
+      // Stage 6a: Devanagari Santali Phonetic Bridge
+      if (/[\u0900-\u097F]/.test(rawText)) {
+        const devanagariSpoken = transliterateDevanagariToRoman(normalizedText);
+        return {
+          language: langCode,
+          sourceText: rawText,
+          normalizedText,
+          spokenText: devanagariSpoken,
+          phoneticRepresentation: devanagariSpoken,
+          syllables: devanagariSpoken.split(/\s+/).flatMap(w => segmentWordIntoSyllables(w)),
+          quality: 'RULE_BASED',
+          rulesVersion: PRONUNCIATION_ENGINE_VERSION,
+          notes: 'Devanagari Santali phonetic Roman bridge'
+        };
+      }
+
       // Tier 5: Algorithmic fallback
+      const fallbackSpoken = /[\u0900-\u097F]/.test(rawText) 
+        ? transliterateDevanagariToRoman(cleanNoPunct || rawText)
+        : (cleanNoPunct || rawText);
+
       return {
         language: langCode,
         sourceText: rawText,
         normalizedText,
-        spokenText: cleanNoPunct || rawText,
-        phoneticRepresentation: cleanNoPunct || rawText,
+        spokenText: fallbackSpoken,
+        phoneticRepresentation: fallbackSpoken,
         quality: 'ALGORITHMIC',
         rulesVersion: PRONUNCIATION_ENGINE_VERSION,
         notes: 'Tier 5: Algorithmic Romanized passthrough'

@@ -159,20 +159,20 @@ export class LanguageCapabilityRegistry {
       }
     });
 
-    // 4. Mundari (unr) — GATED PHASE 2
+    // 4. Mundari (unr) — PRODUCTION ACTIVE
     LanguageCapabilityRegistry.register({
       code: 'unr',
       iso639_3: 'unr',
       name: 'Mundari',
       nativeName: 'मुंडारी',
-      script: 'Devanagari / Mundari Bani',
-      status: 'GATED_PHASE_2',
-      guardrailMessage: 'Mundari ASR is currently under development. This language will be enabled after validated training and testing.',
+      script: 'Devanagari',
+      unicodeRange: [0x0900, 0x097F],
+      status: 'ACTIVE',
       asr: {
-        engineType: 'gated',
+        engineType: 'browser_webspeech',
         sampleRate: 16000,
         channels: 1,
-        offlineCapable: false,
+        offlineCapable: true,
         expectedScript: 'Devanagari'
       },
       translation: {
@@ -187,7 +187,7 @@ export class LanguageCapabilityRegistry {
       },
       pronunciation: {
         hasRomanMapping: true,
-        hasIPAMapping: false
+        hasIPAMapping: true
       }
     });
 

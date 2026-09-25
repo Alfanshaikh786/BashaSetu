@@ -324,11 +324,8 @@ export class S2SASRAdapter {
 
       this.ws.onerror = () => {
         if (!isConnected) {
-          this.emitError(
-            'WEBSOCKET_ERROR',
-            `Local ${lang.toUpperCase()} neural ASR service is not responding on port 5000. Start backend with: python -m server.main`,
-            turnId
-          );
+          console.warn(`[ASRAdapter] Local ${lang.toUpperCase()} neural ASR service is not responding on port 5000. Falling back to browser speech.`);
+          this.startBrowserSpeech(lang, turnId);
         }
         resolve();
       };
@@ -362,6 +359,10 @@ export class S2SASRAdapter {
         speechLang = 'hi-IN';
       } else if (langLower === 'eng' || langLower === 'en') {
         speechLang = 'en-IN';
+      } else if (langLower === 'unr' || langLower === 'mundari' || langLower === 'mun') {
+        speechLang = 'hi-IN';
+      } else if (langLower === 'sat' || langLower === 'santali') {
+        speechLang = 'hi-IN';
       } else if (langLower === 'ben' || langLower === 'bn') {
         speechLang = 'bn-IN';
       } else if (langLower === 'ory' || langLower === 'or') {

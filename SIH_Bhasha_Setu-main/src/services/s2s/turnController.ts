@@ -390,8 +390,10 @@ export class S2STurnController {
       this.stateMachine.transitionTo('PLAYING', { turnId });
       S2STurnLogger.log(turnId, 'TTS_START', { targetText: translationRes.targetText, targetLang });
 
+      const textToSpeak = translationRes.transliteration || translationRes.targetText;
+
       S2STTSEngine.play(
-        translationRes.targetText,
+        textToSpeak,
         targetLang,
         turnId,
         {
@@ -436,8 +438,9 @@ export class S2STurnController {
   /**
    * Explicitly plays speech for any historical turn message.
    */
-  public playMessageAudio(text: string, langCode: string, msgId: string): void {
-    S2STTSEngine.play(text, langCode, msgId, {
+  public playMessageAudio(text: string, langCode: string, msgId: string, pronunciation?: string): void {
+    const textToPlay = pronunciation || text;
+    S2STTSEngine.play(textToPlay, langCode, msgId, {
       rate: this.voiceSpeed,
       onStart: () => this.callbacks.onSpeakingTurnIdChange?.(msgId),
       onEnd: () => this.callbacks.onSpeakingTurnIdChange?.(null),

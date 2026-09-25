@@ -20,6 +20,7 @@ import { TTSVoiceRouter } from './voiceRouter';
 import { BrowserResilience } from './resilience/browserResilience';
 import { TTSDiagnostics } from './observability/ttsDiagnostics';
 import { transliterateDevanagariToRoman } from './pronunciation/pronunciationEngine';
+import { containsOlChiki, transliterateOlChikiPhonetic } from './linguistics/olChikiLinguistics';
 
 export class TTSQueue {
   private static currentState: TTSQueueState = 'IDLE';
@@ -112,11 +113,17 @@ export class TTSQueue {
       const { voice, voiceLang } = TTSVoiceRouter.selectOptimalVoice(langCode);
       let textToSpeak = chunk.spokenText || chunk.text;
 
-      // Special case: Hindi text when no native Hindi voice exists on device
+      // Transliteration bridge: If chosen voice cannot render script natively, bridge to Roman phonetics
       const code = langCode.toLowerCase().trim();
       const hasHindiVoice = voice && voice.lang.toLowerCase().startsWith('hi');
-      if ((code === 'hin' || code === 'hindi') && !hasHindiVoice) {
+      const hasDevanagari = /[\u0900-\u097F]/.test(textToSpeak);
+      const hasOlChiki = containsOlChiki(textToSpeak);
+
+      if (hasDevanagari && !hasHindiVoice) {
         textToSpeak = transliterateDevanagariToRoman(textToSpeak);
+      }
+      if (hasOlChiki) {
+        textToSpeak = transliterateOlChikiPhonetic(textToSpeak);
       }
 
       // Create and configure utterance

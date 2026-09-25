@@ -230,13 +230,22 @@ export const SpeechToSpeechPage: React.FC = () => {
     setLiveTranscript('');
 
     if (controllerRef.current) {
-      await controllerRef.current.startTurn(
-        speaker,
-        sourceCode,
-        targetCode,
-        sourceLangName,
-        senderRole
-      );
+      try {
+        const started = await controllerRef.current.startTurn(
+          speaker,
+          sourceCode,
+          targetCode,
+          sourceLangName,
+          senderRole
+        );
+        if (!started) {
+          setActiveSpeaker(null);
+        }
+      } catch (err) {
+        setActiveSpeaker(null);
+      }
+    } else {
+      setActiveSpeaker(null);
     }
   };
 
@@ -442,7 +451,7 @@ export const SpeechToSpeechPage: React.FC = () => {
                         Translation
                       </span>
                       <button
-                        onClick={() => playTextSpeech(m.translatedText, m.targetLang)}
+                        onClick={() => playTextSpeech(m.pronunciation || m.translatedText, m.targetLang)}
                         className="p-1 rounded-md text-[#249144] hover:bg-emerald-50 transition cursor-pointer"
                         title="Play translated audio"
                       >
