@@ -269,13 +269,16 @@ export const SpeechToSpeechPage: React.FC = () => {
     setLiveTranscript('');
 
     if (controllerRef.current) {
-      await controllerRef.current.startTurn(
+      const ok = await controllerRef.current.startTurn(
         speaker,
         sourceCode,
         targetCode,
         sourceLangName,
         senderRole
       );
+      if (!ok) {
+        setActiveSpeaker(null);
+      }
     }
   };
 

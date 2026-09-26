@@ -113,7 +113,15 @@ export class S2SASRAdapter {
 
     S2STurnLogger.log(turnId, 'MIC_REQUEST', { sourceLang });
 
-    if (sourceLang === 'sat') {
+    const isLocalhost = typeof window !== 'undefined' && (
+      window.location.hostname === 'localhost' || 
+      window.location.hostname === '127.0.0.1'
+    );
+    const hasCustomBackend = typeof window !== 'undefined' && !!localStorage.getItem('bhasha_backend_host');
+
+    // On mobile devices where no local backend IP is configured, route Santali synchronously to browser WebSpeech
+    // to preserve the user's touch gesture activation
+    if (sourceLang === 'sat' && (isLocalhost || hasCustomBackend)) {
       await this.startLocalStreamingASR(turnId, sourceLang);
     } else {
       this.startBrowserSpeech(sourceLang, turnId);
@@ -188,6 +196,11 @@ export class S2SASRAdapter {
 
     if (this.browserRecognition) {
       try {
+        this.browserRecognition.onresult = null;
+        this.browserRecognition.onend = null;
+        this.browserRecognition.onerror = null;
+        this.browserRecognition.onspeechstart = null;
+        this.browserRecognition.onspeechend = null;
         this.browserRecognition.abort();
       } catch {}
       this.browserRecognition = null;
@@ -446,7 +459,17 @@ export class S2SASRAdapter {
         if (this.activeTurnId === turnId) {
           this.activeTurnId = null;
         }
-        this.browserRecognition = null;
+        if (this.browserRecognition) {
+          try {
+            this.browserRecognition.onresult = null;
+            this.browserRecognition.onend = null;
+            this.browserRecognition.onerror = null;
+            this.browserRecognition.onspeechstart = null;
+            this.browserRecognition.onspeechend = null;
+            this.browserRecognition.stop();
+          } catch {}
+          this.browserRecognition = null;
+        }
       };
 
       this.browserDispatchFinal = dispatchFinal;

@@ -34,24 +34,29 @@ export class S2STTSEngine {
     } catch {}
   }
 
+  private static hasPrimedVoices = false;
+
   /**
    * Pre-warms voices in the browser so initial playback has zero loading delay.
-   * On mobile (iOS Safari & Android Chrome), also primes the speech synthesis engine
-   * during the user's synchronous tap gesture so delayed asynchronous playback is never blocked.
+   * On mobile (iOS Safari & Android Chrome), primes the speech synthesis engine once
+   * during initial user gesture so delayed asynchronous playback is never blocked.
    */
   public static prewarmVoices(): void {
     try {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.getVoices();
 
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
-        if (isMobile) {
-          try {
-            const primer = new SpeechSynthesisUtterance('');
-            primer.volume = 0;
-            primer.rate = 1.0;
-            window.speechSynthesis.speak(primer);
-          } catch {}
+        if (!this.hasPrimedVoices) {
+          this.hasPrimedVoices = true;
+          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
+          if (isMobile) {
+            try {
+              const primer = new SpeechSynthesisUtterance(' ');
+              primer.volume = 0.001;
+              primer.rate = 1.0;
+              window.speechSynthesis.speak(primer);
+            } catch {}
+          }
         }
       }
     } catch {}
