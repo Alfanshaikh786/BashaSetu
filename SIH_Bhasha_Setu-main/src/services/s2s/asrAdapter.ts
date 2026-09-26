@@ -390,8 +390,15 @@ export class S2SASRAdapter {
         speechLang = 'te-IN';
       }
 
+      const isIOS = typeof navigator !== 'undefined' && (
+        /iPad|iPhone|iPod/.test(navigator.userAgent || '') ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+      );
+
       recognition.lang = speechLang;
-      recognition.continuous = true;
+      // In iOS WebKit (Safari), continuous = true causes Apple Dictation to withhold onresult tokens.
+      // Setting continuous = false on iOS enables live streaming onresult callbacks per utterance.
+      recognition.continuous = !isIOS;
       recognition.interimResults = true;
 
       let finalChunk = '';
@@ -537,8 +544,16 @@ export class S2SASRAdapter {
 
         const elapsed = performance.now() - this.startTime;
 
-        // Mobile Android / iOS resilience:
-        // On mobile, native SpeechRecognition often fires onend prematurely after a short breath pause (300-800ms)
+        // Mobile iOS resilience:
+        // On iOS WebKit (continuous = false), onend signifies the complete utterance is captured.
+        // We dispatch final immediately so translation and TTS trigger without waiting.
+        if (isIOS) {
+          dispatchFinal('ios_utterance_end');
+          return;
+        }
+
+        // Mobile Android resilience:
+        // On Android Chrome, native SpeechRecognition often fires onend prematurely after a short breath pause (300-800ms)
         // or before speech starts (if user hesitated for 1-2s).
         // 1. If user hasn't vocalized yet and within initial 8.5s timeout, restart recognition seamlessly
         if (!speechHasStarted && elapsed < 8500) {
@@ -565,7 +580,7 @@ export class S2SASRAdapter {
 
         if (e.error === 'no-speech') {
           // On mobile Android, no-speech is emitted aggressively after ~1.5s of silence
-          if (!speechHasStarted && elapsed < 8500) {
+          if (!isIOS && !speechHasStarted && elapsed < 8500) {
             try {
               recognition.start();
               return;
@@ -574,8 +589,10 @@ export class S2SASRAdapter {
           dispatchFinal('no_speech_event');
         } else if (e.error === 'aborted') {
           dispatchFinal('aborted_event');
+        } else if (e.error === 'language-not-supported') {
+          this.emitError('ASR_ERROR', `Language not supported on device (${speechLang}). Please add it in iPhone Settings > General > Keyboard > Keyboards.`, turnId);
         } else {
-          this.emitError('ASR_ERROR', `Speech recognition ended: ${e.error}`, turnId);
+          this.emitError('ASR_ERROR', `Speech recognition notice: ${e.error}`, turnId);
         }
       };
 
