@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { 
-  Radio, 
-  Mic, 
-  Square, 
-  Volume2, 
-  Sparkles, 
-  ArrowLeftRight, 
+import {
+  Radio,
+  Mic,
+  Square,
+  Volume2,
+  Sparkles,
+  ArrowLeftRight,
   RotateCcw,
   Send,
   Download,
@@ -128,12 +128,12 @@ export const SpeechToSpeechPage: React.FC = () => {
   const controllerRef = useRef<S2STurnController | null>(null);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
-  const langAObj = useMemo(() => 
-    SUPPORTED_LANGUAGES.find(l => l.code === langA) || SUPPORTED_LANGUAGES[1], 
+  const langAObj = useMemo(() =>
+    SUPPORTED_LANGUAGES.find(l => l.code === langA) || SUPPORTED_LANGUAGES[1],
     [langA]
   );
-  const langBObj = useMemo(() => 
-    SUPPORTED_LANGUAGES.find(l => l.code === langB) || SUPPORTED_LANGUAGES[0], 
+  const langBObj = useMemo(() =>
+    SUPPORTED_LANGUAGES.find(l => l.code === langB) || SUPPORTED_LANGUAGES[0],
     [langB]
   );
 
@@ -230,22 +230,13 @@ export const SpeechToSpeechPage: React.FC = () => {
     setLiveTranscript('');
 
     if (controllerRef.current) {
-      try {
-        const started = await controllerRef.current.startTurn(
-          speaker,
-          sourceCode,
-          targetCode,
-          sourceLangName,
-          senderRole
-        );
-        if (!started) {
-          setActiveSpeaker(null);
-        }
-      } catch (err) {
-        setActiveSpeaker(null);
-      }
-    } else {
-      setActiveSpeaker(null);
+      await controllerRef.current.startTurn(
+        speaker,
+        sourceCode,
+        targetCode,
+        sourceLangName,
+        senderRole
+      );
     }
   };
 
@@ -284,7 +275,7 @@ export const SpeechToSpeechPage: React.FC = () => {
         editingMessage.id,
         editOriginalText,
         editTranslatedText
-      ).catch(() => {});
+      ).catch(() => { });
     }
 
     // Update message in state
@@ -415,11 +406,10 @@ export const SpeechToSpeechPage: React.FC = () => {
                 className={`flex flex-col ${isSpeakerA ? 'items-start' : 'items-end'}`}
               >
                 <div
-                  className={`max-w-[85%] sm:max-w-[75%] rounded-3xl p-4 sm:p-5 border transition-all space-y-2.5 ${
-                    isSpeakerA
+                  className={`max-w-[85%] sm:max-w-[75%] rounded-3xl p-4 sm:p-5 border transition-all space-y-2.5 ${isSpeakerA
                       ? 'bg-slate-50/90 border-slate-200 text-slate-900 rounded-tl-sm'
                       : 'bg-emerald-50/70 border-emerald-200/90 text-slate-900 rounded-tr-sm'
-                  }`}
+                    }`}
                 >
                   {/* Sender header */}
                   <div className="flex items-center justify-between gap-3 text-[11px] border-b border-slate-200/60 pb-2">
@@ -451,7 +441,7 @@ export const SpeechToSpeechPage: React.FC = () => {
                         Translation
                       </span>
                       <button
-                        onClick={() => playTextSpeech(m.pronunciation || m.translatedText, m.targetLang)}
+                        onClick={() => playTextSpeech(m.translatedText, m.targetLang)}
                         className="p-1 rounded-md text-[#249144] hover:bg-emerald-50 transition cursor-pointer"
                         title="Play translated audio"
                       >
@@ -592,11 +582,10 @@ export const SpeechToSpeechPage: React.FC = () => {
                 <button
                   key={c.category}
                   onClick={() => setActiveCategory(idx)}
-                  className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition cursor-pointer ${
-                    activeCategory === idx
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition cursor-pointer ${activeCategory === idx
                       ? 'bg-emerald-100 text-[#14532d] font-bold'
                       : 'text-slate-500 hover:bg-slate-100'
-                  }`}
+                    }`}
                 >
                   {c.category}
                 </button>
