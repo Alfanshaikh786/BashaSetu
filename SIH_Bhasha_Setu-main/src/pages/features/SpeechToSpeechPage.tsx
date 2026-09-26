@@ -126,7 +126,7 @@ export const SpeechToSpeechPage: React.FC = () => {
   ]);
 
   const controllerRef = useRef<S2STurnController | null>(null);
-  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const langAObj = useMemo(() => 
     SUPPORTED_LANGUAGES.find(l => l.code === langA) || SUPPORTED_LANGUAGES[1], 
@@ -202,9 +202,15 @@ export const SpeechToSpeechPage: React.FC = () => {
     }
   }, [autoSpeak, voiceSpeed]);
 
+  // Auto-scroll ONLY inside the chat container when new messages arrive, without scrolling the main webpage
   useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, liveTranscript]);
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({
+        top: chatContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [messages]);
 
   const handleSwapSpeakers = () => {
     controllerRef.current?.stopTurn();
@@ -406,7 +412,7 @@ export const SpeechToSpeechPage: React.FC = () => {
         )}
 
         {/* Main Conversation Thread Viewport */}
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-4 sm:p-6 min-h-[380px] max-h-[500px] overflow-y-auto space-y-4">
+        <div ref={chatContainerRef} className="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-4 sm:p-6 min-h-[380px] max-h-[500px] overflow-y-auto space-y-4">
           {messages.map((m) => {
             const isSpeakerA = m.sender === 'speakerA';
             return (
@@ -519,7 +525,6 @@ export const SpeechToSpeechPage: React.FC = () => {
             </div>
           )}
 
-          <div ref={chatBottomRef} />
         </div>
 
         {/* Giant Speaker Microphone Triggers (Person A vs Person B) */}
