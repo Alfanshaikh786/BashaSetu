@@ -246,7 +246,9 @@ export async function queryTranslationFromDb(
       const row = exactStmt.getAsObject() as unknown as TranslationRow;
       exactStmt.free();
 
-      const targetText = (row[targetCol] as string) || (row.mundari as string) || (row.santali as string) || row.english;
+      const targetVal = ((row[targetCol] as string) || '').trim();
+      if (!targetVal) return null;
+      const targetText = targetVal;
       const roman = (targetCol === 'mundari') ? row.mundari_roman : row.santali_roman;
 
       return {
@@ -285,7 +287,9 @@ export async function queryTranslationFromDb(
       // Strict length-guard: Only allow match if token count is very close (prevents 3-word query matching 13-word paragraph)
       if (lengthRatio >= 0.8) {
         fuzzyStmt.free();
-        const targetText = (row[targetCol] as string) || (row.mundari as string) || (row.santali as string) || row.english;
+        const targetVal = ((row[targetCol] as string) || '').trim();
+        if (!targetVal) return null;
+        const targetText = targetVal;
         const roman = (targetCol === 'mundari') ? row.mundari_roman : row.santali_roman;
         return {
           targetText,

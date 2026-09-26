@@ -1,7 +1,6 @@
 import React, { Suspense, lazy, Component, ErrorInfo } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { Navbar } from './components/layout/Navbar';
-import { Footer } from './components/layout/Footer';
 import { ScrollToTop } from './components/common/ScrollToTop';
 import { PWAInstallPrompt } from './components/common/PWAInstallPrompt';
 
@@ -101,7 +100,6 @@ const WithNavbar: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <div className="flex-1 flex flex-col pb-20 md:pb-0">
       {children}
     </div>
-    <Footer />
   </div>
 );
 

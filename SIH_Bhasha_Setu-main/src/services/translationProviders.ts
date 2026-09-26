@@ -153,7 +153,7 @@ export class SantaliDatasetProvider implements ITranslationProvider {
   isOffline = true;
 
   isAvailable(sourceLang: SupportedLanguage, targetLang: SupportedLanguage): boolean {
-    return sourceLang === 'santali' || targetLang === 'santali' || sourceLang === 'english' || sourceLang === 'hindi';
+    return sourceLang === 'santali' || targetLang === 'santali';
   }
 
   translate(

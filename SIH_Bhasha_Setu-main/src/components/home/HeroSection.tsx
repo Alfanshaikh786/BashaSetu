@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, Languages, Mic, ScanText, BookOpen } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 
 export const HeroSection: React.FC = () => {
   return (
@@ -64,75 +64,6 @@ export const HeroSection: React.FC = () => {
             </Link>
           </div>
 
-          {/* Mobile Native App Quick Tools Grid (md:hidden) */}
-          <div className="md:hidden w-full pt-2">
-            <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Quick App Launchpad
-              </span>
-              <span className="text-[10px] font-semibold text-[#238B45] bg-[#EAF5EA] px-2 py-0.5 rounded-full border border-[#D5E8D5]">
-                Tap to Open
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2.5">
-              {/* Text Translation */}
-              <Link
-                to="/features/text-to-text"
-                className="p-3 bg-white rounded-2xl border border-[#D5E8D5] shadow-2xs hover:shadow-xs flex flex-col gap-2 active:scale-95 transition"
-              >
-                <div className="w-9 h-9 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
-                  <Languages className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800">Text Translate</h3>
-                  <p className="text-[10px] text-slate-500 leading-tight mt-0.5">6,780 SQLite WASM</p>
-                </div>
-              </Link>
-
-              {/* Voice Input */}
-              <Link
-                to="/features/speech-to-text"
-                className="p-3 bg-white rounded-2xl border border-[#D5E8D5] shadow-2xs hover:shadow-xs flex flex-col gap-2 active:scale-95 transition"
-              >
-                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                  <Mic className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800">Voice Input</h3>
-                  <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Live speech recognition</p>
-                </div>
-              </Link>
-
-              {/* Camera OCR */}
-              <Link
-                to="/features/ocr"
-                className="p-3 bg-white rounded-2xl border border-[#D5E8D5] shadow-2xs hover:shadow-xs flex flex-col gap-2 active:scale-95 transition"
-              >
-                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                  <ScanText className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800">Camera OCR</h3>
-                  <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Scan tribal scripts</p>
-                </div>
-              </Link>
-
-              {/* Tribal Lexicon */}
-              <Link
-                to="/resources/dictionary"
-                className="p-3 bg-white rounded-2xl border border-[#D5E8D5] shadow-2xs hover:shadow-xs flex flex-col gap-2 active:scale-95 transition"
-              >
-                <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                  <BookOpen className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800">Dictionary</h3>
-                  <p className="text-[10px] text-slate-500 leading-tight mt-0.5">6,780+ curated lexicon</p>
-                </div>
-              </Link>
-            </div>
-          </div>
 
         </div>
       </div>

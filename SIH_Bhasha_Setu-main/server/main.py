@@ -23,6 +23,8 @@ if callable(reconfigure_stdout):
 
 # Load environment
 BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 env_path = BASE_DIR / '.env'
 load_dotenv(dotenv_path=env_path)
 
@@ -108,6 +110,14 @@ try:
 except Exception as video_err:
     print(f"⚠️ Video Subtitles router mount warning: {video_err}")
 
+# Hindi -> Mundari Neural & Dataset Translation Engine
+try:
+    from server.translation import translate_hindi_to_mundari
+    print("✅ Mounted Hindi -> Mundari Translation Engine (Level 1: Dataset, Level 2: mT5 Fallback)")
+except Exception as t_err:
+    print(f"⚠️ Hindi -> Mundari translation engine mount warning: {t_err}")
+    translate_hindi_to_mundari = None
+
 # Language code normalization
 LANG_MAP = {
     'eng': 1, 'en': 1, 'english': 1,
@@ -129,6 +139,20 @@ class TranslateRequest(BaseModel):
     text: str
     source_lang: str
     target_lang: str
+
+class HindiToMundariRequest(BaseModel):
+    text: str
+    domain: Optional[str] = "General"
+
+class HindiToMundariResponse(BaseModel):
+    hindi: str
+    mundari: str
+    mundari_roman: str
+    source: str
+    confidence: str
+    status: str = "success"
+    warning: Optional[str] = None
+    error: Optional[str] = None
 
 class TranslationRowResponse(BaseModel):
     id: int
@@ -432,12 +456,42 @@ def translate_text(req: TranslateRequest):
     if cache_key in _translation_memory_cache:
         return _translation_memory_cache[cache_key]
 
+    src_col = LANG_COL_MAP.get(src_lang, 'english')
+    target_col = LANG_COL_MAP.get(target_lang, 'santali')
+
+    # Level 1 (Dataset) & Level 2 (mT5 Fallback) Hindi -> Mundari Delegation
+    if src_col == 'hindi' and target_col == 'mundari' and translate_hindi_to_mundari is not None:
+        h2m_res = translate_hindi_to_mundari(clean_text)
+        if h2m_res and h2m_res.get("status") == "success" and h2m_res.get("mundari"):
+            target_text = h2m_res["mundari"]
+            roman = h2m_res.get("mundari_roman")
+            is_ds = "dataset" in h2m_res.get("source", "")
+            res = {
+                "target_text": target_text,
+                "roman": roman,
+                "confidence": 0.99 if is_ds else 0.70,
+                "source": h2m_res.get("source"),
+                "row": {
+                    "id": 0,
+                    "english": "",
+                    "hindi": clean_text,
+                    "santali": "",
+                    "santali_roman": None,
+                    "ho": None,
+                    "mundari": target_text,
+                    "mundari_roman": roman,
+                    "category": "General",
+                    "verified": "Yes" if is_ds else "Experimental"
+                }
+            }
+            if len(_translation_memory_cache) < 5000:
+                _translation_memory_cache[cache_key] = res
+            return res
+
     if not check_pg_available():
         conn = get_sqlite_conn()
         try:
             cur = conn.cursor()
-            src_col = LANG_COL_MAP.get(src_lang, 'english')
-            target_col = LANG_COL_MAP.get(target_lang, 'santali')
 
             # 1. Exact match
             query = f"""
@@ -497,6 +551,30 @@ def translate_text(req: TranslateRequest):
                 return res
 
             cur.close()
+            # If Hindi -> Mundari and no SQLite row found, use translation_service
+            if src_col == 'hindi' and target_col == 'mundari' and translate_hindi_to_mundari is not None:
+                h2m_res = translate_hindi_to_mundari(clean_text)
+                if h2m_res and h2m_res.get("status") == "success" and h2m_res.get("mundari"):
+                    target_text = h2m_res["mundari"]
+                    roman = h2m_res["mundari_roman"]
+                    is_ds = "dataset" in h2m_res.get("source", "")
+                    res = {
+                        "target_text": target_text,
+                        "roman": roman,
+                        "confidence": 0.99 if is_ds else 0.70,
+                        "source": h2m_res.get("source"),
+                        "row": {
+                            "id": 0, "english": "", "hindi": clean_text,
+                            "santali": "", "santali_roman": None, "ho": None,
+                            "mundari": target_text, "mundari_roman": roman,
+                            "category": "General",
+                            "verified": "Yes" if is_ds else "Experimental"
+                        }
+                    }
+                    if len(_translation_memory_cache) < 5000:
+                        _translation_memory_cache[cache_key] = res
+                    return res
+
             return {"target_text": None, "roman": None, "confidence": 0, "row": None}
         finally:
             conn.close()
@@ -611,10 +689,51 @@ def translate_text(req: TranslateRequest):
             return res
 
         cur.close()
+        # If Hindi -> Mundari and no PostgreSQL row found, use translation_service
+        if src_col == 'hindi' and target_col == 'mundari' and translate_hindi_to_mundari is not None:
+            h2m_res = translate_hindi_to_mundari(clean_text)
+            if h2m_res and h2m_res.get("status") == "success" and h2m_res.get("mundari"):
+                target_text = h2m_res["mundari"]
+                roman = h2m_res["mundari_roman"]
+                is_ds = "dataset" in h2m_res.get("source", "")
+                res = {
+                    "target_text": target_text,
+                    "roman": roman,
+                    "confidence": 0.99 if is_ds else 0.70,
+                    "source": h2m_res.get("source"),
+                    "row": {
+                        "id": 0, "english": "", "hindi": clean_text,
+                        "santali": "", "santali_roman": None, "ho": None,
+                        "mundari": target_text, "mundari_roman": roman,
+                        "category": "General",
+                        "verified": "Yes" if is_ds else "Experimental"
+                    }
+                }
+                if len(_translation_memory_cache) < 5000:
+                    _translation_memory_cache[cache_key] = res
+                return res
+
         return {"target_text": None, "roman": None, "confidence": 0, "row": None}
 
     finally:
         p.putconn(conn)
+
+@app.post("/api/translate/hindi-to-mundari", response_model=HindiToMundariResponse)
+def api_translate_hindi_to_mundari(req: HindiToMundariRequest):
+    """
+    Dedicated hierarchical Hindi -> Mundari translation endpoint:
+    - Level 1: Local Verified Mundari Dataset (O(1) exact, normalized, high-confidence fuzzy)
+    - Level 2: mT5 Neural Fallback (google/mt5-small or local fine-tuned checkpoint)
+    Strictly isolates Mundari from Santali.
+    """
+    if translate_hindi_to_mundari is None:
+        raise HTTPException(status_code=503, detail="Hindi -> Mundari translation engine is unavailable.")
+    
+    result = translate_hindi_to_mundari(req.text)
+    if result.get("status") == "error":
+        raise HTTPException(status_code=400, detail=result.get("error", "Invalid input"))
+    
+    return result
 
 if __name__ == '__main__':
     import uvicorn

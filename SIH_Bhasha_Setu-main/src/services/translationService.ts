@@ -905,21 +905,21 @@ async function translateSegment(
   const pbRes = await phraseBankProvider.translate(trimmed, sourceLang, targetLang, { domain });
   if (pbRes) return pbRes;
 
-  // 2. Classroom SQLite Database Query (translations.db - 6,780 verified rows)
+  // 2a. Mundari Linguistic Dataset (In-Memory 6,780 entries with O(1) hash maps)
+  if (mundariDatasetProvider.isAvailable(sourceLang, targetLang)) {
+    const munRes = await mundariDatasetProvider.translate(trimmed, sourceLang, targetLang, { domain });
+    if (munRes) return munRes;
+  }
+
+  // 2b. Santali Linguistic Dataset (In-Memory 6,780 entries with O(1) hash maps)
+  if (santaliDatasetProvider.isAvailable(sourceLang, targetLang)) {
+    const satRes = await santaliDatasetProvider.translate(trimmed, sourceLang, targetLang, { domain });
+    if (satRes) return satRes;
+  }
+
+  // 3. Classroom SQLite Database Query (translations.db - 6,780 verified rows)
   const dbRes = await localDbProvider.translate(trimmed, sourceLang, targetLang, { domain });
   if (dbRes) return dbRes;
-
-  // 3. Santali Linguistic Dataset (In-Memory 6,780 entries with O(1) hash maps)
-  if (santaliDatasetProvider.isAvailable(sourceLang, targetLang)) {
-    const dsRes = await santaliDatasetProvider.translate(trimmed, sourceLang, targetLang, { domain });
-    if (dsRes) return dsRes;
-  }
-
-  // 3b. Mundari Linguistic Dataset (In-Memory 6,780 entries with O(1) hash maps)
-  if (mundariDatasetProvider.isAvailable(sourceLang, targetLang)) {
-    const dsRes = await mundariDatasetProvider.translate(trimmed, sourceLang, targetLang, { domain });
-    if (dsRes) return dsRes;
-  }
 
   // 4. On-Device Edge Neural Engine (future-ready interface)
   if (onDeviceModelProvider.isAvailable(sourceLang, targetLang)) {

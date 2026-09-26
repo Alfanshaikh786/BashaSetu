@@ -63,3 +63,8 @@ venv/
 *.traineddata
 scratch/
 
+# Machine learning cache and checkpoints
+.cache/
+models/
+
+

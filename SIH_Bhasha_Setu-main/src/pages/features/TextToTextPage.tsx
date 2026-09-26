@@ -12,7 +12,6 @@ import {
   Share2,
   ThumbsUp,
   ThumbsDown,
-  Info,
   Mic,
   MicOff,
   Radio,
@@ -1237,16 +1236,6 @@ export const TextToTextPage: React.FC = () => {
               }}
             />
           </React.Suspense>
-        </div>
-
-        {/* Educational & Linguistic Integrity Disclaimer */}
-        <div className="mt-8 text-center">
-          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-xl py-2.5 px-4 inline-flex items-center gap-2 font-medium shadow-sm max-w-2xl text-left sm:text-center">
-            <Info className="w-4 h-4 text-amber-700 flex-shrink-0" />
-            <span>
-              <strong>Linguistic Integrity Commitment:</strong> All Santali translations are backed by our curated 6,780-entry verified lexicon and neural models. Mundari and Ho are currently supported for vocabulary assistance only while custom edge models undergo training.
-            </span>
-          </p>
         </div>
 
         {/* Modal Demonstrations & Dialogs (Loaded dynamically on demand) */}

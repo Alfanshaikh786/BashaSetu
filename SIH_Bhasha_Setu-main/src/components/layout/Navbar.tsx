@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
+  Home,
   Languages, 
   ScanText, 
   Mic, 
@@ -33,7 +34,8 @@ import {
   Compass,
   AlertTriangle,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Info
 } from 'lucide-react';
 import { BhashaSetuLogo } from '../common/BhashaSetuLogo';
 import { LoginModal } from '../common/LoginModal';
@@ -65,7 +67,7 @@ export const Navbar: React.FC = () => {
     return getSimulatedOffline();
   });
   const [offlineActivating, setOfflineActivating] = useState(false);
-  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
+  const [activeMobileSheet, setActiveMobileSheet] = useState<'features' | 'resources' | 'studio' | 'about' | null>(null);
   const location = useLocation();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -85,10 +87,10 @@ export const Navbar: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Close mobile drawer & dropdowns on route change
+  // Close mobile sheets & dropdowns on route change
   useEffect(() => {
     setMobileMenuOpen(false);
-    setMobileMoreOpen(false);
+    setActiveMobileSheet(null);
     setActiveDropdown(null);
   }, [location.pathname]);
 
@@ -179,7 +181,7 @@ export const Navbar: React.FC = () => {
             {/* User Profile Avatar / Sign In */}
             {currentUser ? (
               <button
-                onClick={() => setMobileMoreOpen(true)}
+                onClick={() => setActiveMobileSheet('about')}
                 className="w-8 h-8 rounded-full bg-[#238B45] text-white flex items-center justify-center text-xs font-bold shadow-2xs active:scale-95 transition cursor-pointer"
                 title="Account menu"
               >
@@ -553,118 +555,517 @@ export const Navbar: React.FC = () => {
       {/* ─── 3. MOBILE NATIVE BOTTOM TAB BAR (md:hidden) ─── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#F9F6F0]/95 backdrop-blur-lg border-t border-[#D5E8D5] shadow-[0_-4px_24px_rgba(0,0,0,0.06)] safe-bottom">
         <div className="grid grid-cols-5 h-[62px] items-center px-1">
-          {/* Tab 1: Translate */}
+          {/* Tab 1: Home */}
           <Link
-            to="/features/text-to-text"
+            to="/"
+            onClick={() => setActiveMobileSheet(null)}
             className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
-              location.pathname === '/features/text-to-text' || location.pathname === '/'
+              (location.pathname === '/' || location.pathname === '/home') && activeMobileSheet === null
                 ? 'text-[#238B45]'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             <div className={`p-1 rounded-xl transition-all ${
-              location.pathname === '/features/text-to-text' || location.pathname === '/'
+              (location.pathname === '/' || location.pathname === '/home') && activeMobileSheet === null
                 ? 'bg-[#EAF5EA]'
                 : ''
             }`}>
-              <Languages className="w-5 h-5" />
+              <Home className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">Translate</span>
+            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">Home</span>
           </Link>
 
-          {/* Tab 2: Voice */}
-          <Link
-            to="/features/speech-to-text"
-            className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
-              location.pathname === '/features/speech-to-text'
+          {/* Tab 2: Features */}
+          <button
+            onClick={() => setActiveMobileSheet(activeMobileSheet === 'features' ? null : 'features')}
+            className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 cursor-pointer ${
+              activeMobileSheet === 'features' || (location.pathname.startsWith('/features') && !location.pathname.includes('learning-studio'))
                 ? 'text-[#238B45]'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             <div className={`p-1 rounded-xl transition-all ${
-              location.pathname === '/features/speech-to-text'
+              activeMobileSheet === 'features' || (location.pathname.startsWith('/features') && !location.pathname.includes('learning-studio'))
                 ? 'bg-[#EAF5EA]'
                 : ''
             }`}>
-              <Mic className="w-5 h-5" />
+              <Sparkles className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">Voice</span>
-          </Link>
+            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">Features</span>
+          </button>
 
-          {/* Tab 3: Scan */}
-          <Link
-            to="/features/ocr"
-            className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
-              location.pathname === '/features/ocr'
+          {/* Tab 3: Resources */}
+          <button
+            onClick={() => setActiveMobileSheet(activeMobileSheet === 'resources' ? null : 'resources')}
+            className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 cursor-pointer ${
+              activeMobileSheet === 'resources' || location.pathname.startsWith('/resources') || location.pathname === '/teacher-mode'
                 ? 'text-[#238B45]'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             <div className={`p-1 rounded-xl transition-all ${
-              location.pathname === '/features/ocr'
-                ? 'bg-[#EAF5EA]'
-                : ''
-            }`}>
-              <ScanText className="w-5 h-5" />
-            </div>
-            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">Scan</span>
-          </Link>
-
-          {/* Tab 4: Dictionary */}
-          <Link
-            to="/resources/dictionary"
-            className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 ${
-              location.pathname === '/resources/dictionary'
-                ? 'text-[#238B45]'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <div className={`p-1 rounded-xl transition-all ${
-              location.pathname === '/resources/dictionary'
+              activeMobileSheet === 'resources' || location.pathname.startsWith('/resources') || location.pathname === '/teacher-mode'
                 ? 'bg-[#EAF5EA]'
                 : ''
             }`}>
               <BookOpen className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">Dictionary</span>
-          </Link>
+            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">Resources</span>
+          </button>
 
-          {/* Tab 5: More / Drawer */}
+          {/* Tab 4: Learning Studio */}
           <button
-            onClick={() => setMobileMoreOpen(!mobileMoreOpen)}
+            onClick={() => setActiveMobileSheet(activeMobileSheet === 'studio' ? null : 'studio')}
             className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 cursor-pointer ${
-              mobileMoreOpen || location.pathname.startsWith('/features/learning-studio') || location.pathname === '/about-us'
+              activeMobileSheet === 'studio' || location.pathname.includes('learning-studio')
                 ? 'text-[#238B45]'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             <div className={`p-1 rounded-xl transition-all ${
-              mobileMoreOpen ? 'bg-[#EAF5EA]' : ''
+              activeMobileSheet === 'studio' || location.pathname.includes('learning-studio')
+                ? 'bg-[#EAF5EA]'
+                : ''
             }`}>
-              <Menu className="w-5 h-5" />
+              <GraduationCap className="w-5 h-5" />
             </div>
-            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">More</span>
+            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">Studio</span>
+          </button>
+
+          {/* Tab 5: About */}
+          <button
+            onClick={() => setActiveMobileSheet(activeMobileSheet === 'about' ? null : 'about')}
+            className={`flex flex-col items-center justify-center py-1 transition-all active:scale-90 cursor-pointer ${
+              activeMobileSheet === 'about' || location.pathname === '/about-us'
+                ? 'text-[#238B45]'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className={`p-1 rounded-xl transition-all ${
+              activeMobileSheet === 'about' || location.pathname === '/about-us'
+                ? 'bg-[#EAF5EA]'
+                : ''
+            }`}>
+              <Info className="w-5 h-5" />
+            </div>
+            <span className="text-[10px] font-semibold mt-0.5 tracking-tight">About</span>
           </button>
         </div>
       </nav>
 
-      {/* ─── 4. MOBILE SLIDE-UP BOTTOM SHEET (More Drawer) ─── */}
-      {mobileMoreOpen && (
+      {/* ─── 4. MOBILE SLIDE-UP PANELS (Dedicated Per Section) ─── */}
+
+      {/* 4a. FEATURES PANEL (ONLY Features Section) */}
+      {activeMobileSheet === 'features' && (
         <div
           className="md:hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex flex-col justify-end animate-in fade-in duration-200"
-          onClick={(e) => { if (e.target === e.currentTarget) setMobileMoreOpen(false); }}
+          onClick={(e) => { if (e.target === e.currentTarget) setActiveMobileSheet(null); }}
         >
           <div className="bg-[#F9F6F0] rounded-t-[28px] border-t border-[#D5E8D5] max-h-[82vh] overflow-y-auto safe-bottom shadow-2xl p-5 animate-in slide-in-from-bottom duration-200">
-            {/* Sheet Drag Handle */}
-            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-4" />
+            {/* Drag Handle */}
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-4" />
 
-            {/* Header info */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#D5E8D5]/70">
               <div className="flex items-center gap-2.5">
-                <BhashaSetuLogo size="sm" />
+                <div className="w-8 h-8 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-slate-900 block">Features & AI Tools</span>
+                  <span className="text-[11px] text-slate-500">Multimodal translation & speech suite</span>
+                </div>
               </div>
               <button
-                onClick={() => setMobileMoreOpen(false)}
+                onClick={() => setActiveMobileSheet(null)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* List of ONLY Features */}
+            <div className="mt-3.5 grid grid-cols-1 gap-2">
+              {/* 1. Text to Text */}
+              <Link
+                to="/features/text-to-text"
+                onClick={() => setActiveMobileSheet(null)}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  location.pathname === '/features/text-to-text'
+                    ? 'border-[#238B45] bg-[#EAF5EA] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3]'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <Languages className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">Text to Text Translation</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-[#238B45]">AI Core</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Multidirectional Hindi, Santali, Mundari & English</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </Link>
+
+              {/* 2. Scan & OCR */}
+              <Link
+                to="/features/ocr"
+                onClick={() => setActiveMobileSheet(null)}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  location.pathname === '/features/ocr'
+                    ? 'border-[#238B45] bg-[#EAF5EA] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3]'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <ScanText className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">Scan & OCR Text</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-700">Vision</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Extract & translate from textbook charts & photos</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </Link>
+
+              {/* 3. Speech to Text */}
+              <Link
+                to="/features/speech-to-text"
+                onClick={() => setActiveMobileSheet(null)}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  location.pathname === '/features/speech-to-text'
+                    ? 'border-[#238B45] bg-[#EAF5EA] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3]'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <Mic className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">Speech to Text (ASR)</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700">Voice</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Live speech recognition & audio transcription</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </Link>
+
+              {/* 4. Voice to Voice */}
+              <Link
+                to="/features/speech-to-speech"
+                onClick={() => setActiveMobileSheet(null)}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  location.pathname === '/features/speech-to-speech'
+                    ? 'border-[#238B45] bg-[#EAF5EA] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3]'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <Radio className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">Voice to Voice</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800">Live Dual</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Two-way conversational dialogue bridge</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </Link>
+
+              {/* 5. Text to Speech */}
+              <Link
+                to="/features/text-to-speech"
+                onClick={() => setActiveMobileSheet(null)}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  location.pathname === '/features/text-to-speech'
+                    ? 'border-[#238B45] bg-[#EAF5EA] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3]'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <Volume2 className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">Text to Speech</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-teal-100 text-teal-800">TTS Audio</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Listen in natural tribal accents with Roman phonetics</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </Link>
+
+              {/* 6. Video Subtitle */}
+              <Link
+                to="/features/video-subtitle"
+                onClick={() => setActiveMobileSheet(null)}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  location.pathname === '/features/video-subtitle'
+                    ? 'border-[#238B45] bg-[#EAF5EA] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3]'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <Video className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">Video Subtitle</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-700">Media</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Multilingual subtitles for educational lessons & videos</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4b. RESOURCES PANEL (ONLY Resources Section) */}
+      {activeMobileSheet === 'resources' && (
+        <div
+          className="md:hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex flex-col justify-end animate-in fade-in duration-200"
+          onClick={(e) => { if (e.target === e.currentTarget) setActiveMobileSheet(null); }}
+        >
+          <div className="bg-[#F9F6F0] rounded-t-[28px] border-t border-[#D5E8D5] max-h-[82vh] overflow-y-auto safe-bottom shadow-2xl p-5 animate-in slide-in-from-bottom duration-200">
+            {/* Drag Handle */}
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-4" />
+
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#D5E8D5]/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
+                  <BookOpen className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-slate-900 block">Resources & Lexicon</span>
+                  <span className="text-[11px] text-slate-500">Dictionaries, offline packages & frontline aids</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveMobileSheet(null)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* List of ONLY Resources */}
+            <div className="mt-3.5 grid grid-cols-1 gap-2">
+              {/* 1. Tribal Dictionary */}
+              <Link
+                to="/resources/dictionary"
+                onClick={() => setActiveMobileSheet(null)}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  location.pathname === '/resources/dictionary'
+                    ? 'border-[#238B45] bg-[#EAF5EA] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3]'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">Tribal Dictionary</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-[#238B45]">6,780+ Words</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Multilingual verified vocabulary with native pronunciation</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </Link>
+
+              {/* 2. Offline Mode & Data Packages */}
+              <button
+                onClick={() => {
+                  setActiveMobileSheet(null);
+                  setOfflineModalOpen(true);
+                }}
+                className="flex items-center gap-3 p-3 rounded-2xl border border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3] transition text-left cursor-pointer shadow-2xs"
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0 relative">
+                  <Target className="w-5 h-5" />
+                  {isOfflineMode && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-orange-500 border border-white animate-pulse" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">Offline Mode & Data</p>
+                    {isOfflineMode ? (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-700 animate-pulse">Active</span>
+                    ) : (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600">Offline Ready</span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">
+                    {isOfflineMode ? 'Running offline without internet' : 'Download packages for zero-network rural schools'}
+                  </p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </button>
+
+              {/* 3. Teacher Mode */}
+              <Link
+                to="/teacher-mode"
+                onClick={() => setActiveMobileSheet(null)}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  location.pathname === '/teacher-mode'
+                    ? 'border-[#238B45] bg-[#EAF5EA] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3]'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <BookMarked className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">Teacher Mode</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-800">Classroom</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Bilingual classroom drills for migrant teachers</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4c. LEARNING STUDIO PANEL (ONLY Learning Studio Section) */}
+      {activeMobileSheet === 'studio' && (
+        <div
+          className="md:hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex flex-col justify-end animate-in fade-in duration-200"
+          onClick={(e) => { if (e.target === e.currentTarget) setActiveMobileSheet(null); }}
+        >
+          <div className="bg-[#F9F6F0] rounded-t-[28px] border-t border-[#D5E8D5] max-h-[82vh] overflow-y-auto safe-bottom shadow-2xl p-5 animate-in slide-in-from-bottom duration-200">
+            {/* Drag Handle */}
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-4" />
+
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#D5E8D5]/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
+                  <GraduationCap className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-slate-900 block">Learning Studio</span>
+                  <span className="text-[11px] text-slate-500">Interactive drills, 3D flashcards & quizzes</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveMobileSheet(null)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* List of ONLY Learning Studio Tools */}
+            <div className="mt-3.5 grid grid-cols-1 gap-2">
+              {/* 1. Classroom Worksheets */}
+              <Link
+                to="/features/learning-studio?tab=worksheets"
+                onClick={() => setActiveMobileSheet(null)}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  location.pathname === '/features/learning-studio' && location.search.includes('worksheets')
+                    ? 'border-[#238B45] bg-[#EAF5EA] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3]'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">Classroom Worksheets</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-[#238B45]">Printable A4</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Solve live or export A4 printable tribal exercises</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </Link>
+
+              {/* 2. 3D Audio Flashcards */}
+              <Link
+                to="/features/learning-studio?tab=flashcards"
+                onClick={() => setActiveMobileSheet(null)}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  location.pathname === '/features/learning-studio' && location.search.includes('flashcards')
+                    ? 'border-[#238B45] bg-[#EAF5EA] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3]'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">3D Audio Flashcards</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700">Audio Visual</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Interactive 3D cards with native speaker pronunciation</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </Link>
+
+              {/* 3. Quiz & Assessments */}
+              <Link
+                to="/features/learning-studio?tab=assessment"
+                onClick={() => setActiveMobileSheet(null)}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  location.pathname === '/features/learning-studio' && location.search.includes('assessment')
+                    ? 'border-[#238B45] bg-[#EAF5EA] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3]'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">Quiz & Assessments</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800">Certificates</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Language fluency test challenges & student certificates</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4d. ABOUT & ACCOUNT PANEL (ONLY About Section) */}
+      {activeMobileSheet === 'about' && (
+        <div
+          className="md:hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex flex-col justify-end animate-in fade-in duration-200"
+          onClick={(e) => { if (e.target === e.currentTarget) setActiveMobileSheet(null); }}
+        >
+          <div className="bg-[#F9F6F0] rounded-t-[28px] border-t border-[#D5E8D5] max-h-[82vh] overflow-y-auto safe-bottom shadow-2xl p-5 animate-in slide-in-from-bottom duration-200">
+            {/* Drag Handle */}
+            <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-4" />
+
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-[#D5E8D5]/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
+                  <Info className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-slate-900 block">About & Community</span>
+                  <span className="text-[11px] text-slate-500">Project vision, mobile app & account</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveMobileSheet(null)}
                 className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -673,14 +1074,14 @@ export const Navbar: React.FC = () => {
 
             {/* User Profile Card */}
             {currentUser ? (
-              <div className="mt-3 p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between">
+              <div className="mt-3.5 p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-[#238B45] text-white flex items-center justify-center font-bold text-sm">
                     {currentUser.name ? currentUser.name[0].toUpperCase() : 'U'}
                   </div>
                   <div>
                     <p className="text-xs font-bold text-slate-900">{currentUser.name || 'User'}</p>
-                    <p className="text-[11px] text-slate-500 truncate max-w-[180px]">{currentUser.email}</p>
+                    <p className="text-[11px] text-slate-500 truncate max-w-[170px]">{currentUser.email}</p>
                   </div>
                 </div>
                 <button
@@ -694,14 +1095,14 @@ export const Navbar: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <div className="mt-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+              <div className="mt-3.5 p-3 rounded-2xl bg-white border border-slate-200 flex items-center justify-between shadow-2xs">
                 <div>
                   <p className="text-xs font-bold text-slate-900">Sign in to sync your work</p>
                   <p className="text-[11px] text-slate-500">History, saved words & classroom drills</p>
                 </div>
                 <button
                   onClick={() => {
-                    setMobileMoreOpen(false);
+                    setActiveMobileSheet(null);
                     setLoginOpen(true);
                   }}
                   className="text-xs font-bold bg-[#238B45] text-white px-3.5 py-1.5 rounded-xl hover:bg-[#176B3A] transition cursor-pointer"
@@ -711,147 +1112,74 @@ export const Navbar: React.FC = () => {
               </div>
             )}
 
-            {/* Section 1: Learning Studio */}
-            <div className="mt-4">
-              <span className="text-[10px] font-bold text-[#238B45] uppercase tracking-wider flex items-center gap-1 mb-2">
-                <GraduationCap className="w-3.5 h-3.5" /> Learning & Classroom Studio
-              </span>
-              <div className="grid grid-cols-1 gap-2">
-                <Link
-                  to="/features/learning-studio?tab=flashcards"
-                  onClick={() => setMobileMoreOpen(false)}
-                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-[#F4FAF3] transition"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
-                    <Layers className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">3D Audio Flashcards</p>
-                    <p className="text-[10px] text-slate-500">Interactive visual cards with native speech</p>
-                  </div>
-                </Link>
-
-                <Link
-                  to="/features/learning-studio?tab=worksheets"
-                  onClick={() => setMobileMoreOpen(false)}
-                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-[#F4FAF3] transition"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
-                    <FileSpreadsheet className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">Classroom Worksheets</p>
-                    <p className="text-[10px] text-slate-500">Printable A4 tribal language exercises</p>
-                  </div>
-                </Link>
-
-                <Link
-                  to="/features/learning-studio?tab=assessment"
-                  onClick={() => setMobileMoreOpen(false)}
-                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-[#F4FAF3] transition"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
-                    <Award className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">Quiz & Assessments</p>
-                    <p className="text-[10px] text-slate-500">Language fluency tests & certifications</p>
-                  </div>
-                </Link>
-              </div>
-            </div>
-
-            {/* Section 2: Advanced Speech & Audio Tools */}
-            <div className="mt-4">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">
-                Speech & Audio Tools
-              </span>
-              <div className="grid grid-cols-1 gap-2">
-                <Link
-                  to="/features/speech-to-speech"
-                  onClick={() => setMobileMoreOpen(false)}
-                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-[#F4FAF3] transition"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
-                    <Radio className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">Voice to Voice</p>
-                    <p className="text-[10px] text-slate-500">Two-way conversational dialogue</p>
-                  </div>
-                </Link>
-
-                <Link
-                  to="/features/text-to-speech"
-                  onClick={() => setMobileMoreOpen(false)}
-                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-[#F4FAF3] transition"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
-                    <Volume2 className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">Text to Speech</p>
-                    <p className="text-[10px] text-slate-500">Listen in native tribal accents</p>
-                  </div>
-                </Link>
-
-                <Link
-                  to="/features/video-subtitle"
-                  onClick={() => setMobileMoreOpen(false)}
-                  className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-[#F4FAF3] transition"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center">
-                    <Video className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">Video Subtitle</p>
-                    <p className="text-[10px] text-slate-500">Subtitles for video lessons</p>
-                  </div>
-                </Link>
-              </div>
-            </div>
-
-            {/* Section 3: App Controls & Offline */}
-            <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-2">
-              <button
-                onClick={() => {
-                  setMobileMoreOpen(false);
-                  setOfflineModalOpen(true);
-                }}
-                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 transition text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
-                    <WifiOff className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">Offline Mode Center</p>
-                    <p className="text-[10px] text-slate-500">Manage 8 offline modules & SQLite DB</p>
-                  </div>
-                </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isOfflineMode ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                  {isOfflineMode ? 'Active' : 'Ready'}
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setMobileMoreOpen(false);
-                  window.dispatchEvent(new CustomEvent('trigger-pwa-install'));
-                }}
-                className="w-full py-2.5 rounded-xl bg-[#238B45] hover:bg-[#176B3A] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs cursor-pointer active:scale-98 transition"
-              >
-                <Smartphone className="w-4 h-4" />
-                <span>Install Mobile App (PWA)</span>
-              </button>
-
+            {/* List of ONLY About Section Items */}
+            <div className="mt-3 grid grid-cols-1 gap-2">
+              {/* 1. About Us Full Page */}
               <Link
                 to="/about-us"
-                onClick={() => setMobileMoreOpen(false)}
-                className="text-center py-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
+                onClick={() => setActiveMobileSheet(null)}
+                className={`flex items-center gap-3 p-3 rounded-2xl border transition ${
+                  location.pathname === '/about-us'
+                    ? 'border-[#238B45] bg-[#EAF5EA] shadow-xs'
+                    : 'border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3]'
+                }`}
               >
-                About Bhasha Setu & Project Mission
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">About Bhasha Setu</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-[#238B45]">Mission</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Our vision to bridge tribal languages for migrant teachers</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
               </Link>
+
+              {/* 2. Install App (PWA) */}
+              <button
+                onClick={() => {
+                  setActiveMobileSheet(null);
+                  window.dispatchEvent(new CustomEvent('trigger-pwa-install'));
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-2xl border border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3] transition text-left cursor-pointer shadow-2xs"
+              >
+                <div className="w-10 h-10 rounded-xl bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-slate-900">Install Mobile App (PWA)</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700">Offline App</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 truncate">Add to home screen for native app experience</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto flex-shrink-0" />
+              </button>
+
+              {/* 3. Return to Home */}
+              <Link
+                to="/"
+                onClick={() => setActiveMobileSheet(null)}
+                className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-200 bg-white hover:border-[#238B45] hover:bg-[#F4FAF3] transition"
+              >
+                <div className="w-8 h-8 rounded-lg bg-[#EAF5EA] text-[#238B45] flex items-center justify-center flex-shrink-0">
+                  <Home className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-slate-800">Home Launchpad</p>
+                  <p className="text-[10px] text-slate-500">Return to main dashboard & quick tools</p>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-400 ml-auto" />
+              </Link>
+            </div>
+
+            {/* Footer Badge */}
+            <div className="mt-4 pt-3 border-t border-slate-200/80 text-center">
+              <p className="text-[10px] font-medium text-slate-500">
+                Bhasha Setu v2.4.0 • 100% Offline Ready • Ol Chiki & Devanagari Enabled
+              </p>
             </div>
           </div>
         </div>
