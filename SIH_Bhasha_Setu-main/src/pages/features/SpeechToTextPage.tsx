@@ -688,7 +688,7 @@ export const SpeechToTextPage: React.FC = () => {
             >
               {SUPPORTED_LANGUAGES.map(l => (
                 <option key={l.id} value={l.code}>
-                  {l.name} ({l.nativeName}) {l.code === 'sat' ? '★ Neural ASR' : l.isTribal ? '(Phase 2/3)' : ''}
+                  {l.name} ({l.nativeName}) {l.code === 'sat' ? '★ Neural ASR' : ''}
                 </option>
               ))}
             </select>

@@ -339,7 +339,7 @@ export const SpeechToSpeechPage: React.FC = () => {
               >
                 {SUPPORTED_LANGUAGES.map(l => (
                   <option key={`a-${l.id}`} value={l.code}>
-                    {l.name} {l.isTribal ? (l.code === 'sat' ? '★' : '(Phase 2/3)') : ''}
+                    {l.name}
                   </option>
                 ))}
               </select>
@@ -363,7 +363,7 @@ export const SpeechToSpeechPage: React.FC = () => {
               >
                 {SUPPORTED_LANGUAGES.map(l => (
                   <option key={`b-${l.id}`} value={l.code}>
-                    {l.name} {l.isTribal ? (l.code === 'sat' ? '★' : '(Phase 2/3)') : ''}
+                    {l.name}
                   </option>
                 ))}
               </select>

@@ -173,7 +173,7 @@ export const VideoSubtitlePage: React.FC = () => {
 
     if (targetLang === 'unr' || targetLang === 'hoc') {
       setErrorMessage(
-        `${targetLang === 'unr' ? 'Mundari' : 'Ho'} subtitling is scheduled for Phase 2/3. This phase actively supports Santali (sat).`
+        `${targetLang === 'unr' ? 'Mundari' : 'Ho'} video subtitling is currently in development. Currently actively supporting Santali (sat), Hindi, and English.`
       );
       return;
     }
@@ -434,8 +434,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     <option value="sat">Santali</option>
                     <option value="hin">Hindi</option>
                     <option value="eng">English</option>
-                    <option value="unr" disabled>Mundari (Phase 2)</option>
-                    <option value="hoc" disabled>Ho (Phase 3)</option>
+                    <option value="unr" disabled>Mundari (Coming Soon)</option>
+                    <option value="hoc" disabled>Ho (Coming Soon)</option>
                   </select>
                   <div className="absolute right-3.5 text-slate-400 pointer-events-none text-xs">▼</div>
                 </div>

@@ -307,7 +307,7 @@ export const TeacherModePage: React.FC = () => {
               >
                 {SUPPORTED_LANGUAGES.map(l => (
                   <option key={`t-${l.id}`} value={l.code}>
-                    {l.name} {l.isTribal ? (l.code === 'sat' ? '★' : '(Phase 2/3)') : ''}
+                    {l.name}
                   </option>
                 ))}
               </select>
