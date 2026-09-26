@@ -36,8 +36,21 @@ export class S2SASRAdapter {
   private hasEmittedFirstFrame: boolean = false;
   private hasLoggedSpeechStart: boolean = false;
 
+  public static getBackendHost(): string {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('bhasha_backend_host');
+        if (stored && stored.trim()) return stored.trim();
+      } catch {}
+      if (window.location?.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        return window.location.hostname;
+      }
+    }
+    return '127.0.0.1';
+  }
+
   private static getWsUrl(lang: string = 'sat', turnId?: string): string {
-    const base = (typeof window !== 'undefined' && window.location?.hostname) ? window.location.hostname : '127.0.0.1';
+    const base = S2SASRAdapter.getBackendHost();
     const proto = (typeof window !== 'undefined' && window.location?.protocol === 'https:') ? 'wss:' : 'ws:';
     const turnParam = turnId ? `&turnId=${encodeURIComponent(turnId)}` : '';
     if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ASR_WS_URL) {
@@ -384,8 +397,9 @@ export class S2SASRAdapter {
       let finalChunk = '';
       let latestInterim = '';
       let hasFinalized = false;
+      let speechHasStarted = false;
       let autoFinalizeTimer: any = null;
-      const AUTO_FINALIZE_SILENCE_MS = 1400; // 1.4s of silence after speech automatically finalizes and translates
+      const AUTO_FINALIZE_SILENCE_MS = 2200; // Natural conversational pause tolerance: 2.2s
 
       const dispatchFinal = (reason: string) => {
         if (hasFinalized) return;
@@ -432,8 +446,13 @@ export class S2SASRAdapter {
 
       recognition.onspeechstart = () => {
         if (this.activeTurnId === turnId) {
+          speechHasStarted = true;
           S2STurnLogger.log(turnId, 'VAD_SPEECH_START');
           this.options.onSpeechStart?.(turnId);
+          if (autoFinalizeTimer) {
+            clearTimeout(autoFinalizeTimer);
+            autoFinalizeTimer = null;
+          }
         }
       };
 
@@ -442,7 +461,7 @@ export class S2SASRAdapter {
           S2STurnLogger.log(turnId, 'VAD_SILENCE_START');
           this.options.onSpeechEnd?.(turnId);
 
-          // If speech was vocalized, auto-finalize after short 800ms silence
+          // Conversational pause tolerance: finalize only after 2.2s continuous silence
           const currentText = (finalChunk + (latestInterim ? ' ' + latestInterim : '')).trim();
           if (currentText && !hasFinalized) {
             if (autoFinalizeTimer) {
@@ -455,7 +474,7 @@ export class S2SASRAdapter {
                 } catch {}
                 dispatchFinal('speechend_auto_finalize');
               }
-            }, 800);
+            }, AUTO_FINALIZE_SILENCE_MS);
             this.browserAutoFinalizeTimer = autoFinalizeTimer;
           }
         }
@@ -464,6 +483,7 @@ export class S2SASRAdapter {
       recognition.onresult = (event: any) => {
         if (this.activeTurnId !== turnId) return;
 
+        speechHasStarted = true;
         // Reset silence countdown on active incoming speech
         this.options.onSpeechStart?.(turnId);
 
@@ -496,7 +516,7 @@ export class S2SASRAdapter {
             autoFinalizeTimer = null;
           }
 
-          // Automatically convert and translate after 1.4s of silence
+          // Automatically convert and translate after 2.2s of continuous silence
           autoFinalizeTimer = setTimeout(() => {
             if (this.activeTurnId === turnId && !hasFinalized) {
               S2STurnLogger.log(turnId, 'VAD_ENDPOINT', { reason: 'auto_silence_after_speech', silenceMs: AUTO_FINALIZE_SILENCE_MS });
@@ -511,12 +531,46 @@ export class S2SASRAdapter {
       };
 
       recognition.onend = () => {
+        if (hasFinalized || this.activeTurnId !== turnId) {
+          return;
+        }
+
+        const elapsed = performance.now() - this.startTime;
+
+        // Mobile Android / iOS resilience:
+        // On mobile, native SpeechRecognition often fires onend prematurely after a short breath pause (300-800ms)
+        // or before speech starts (if user hesitated for 1-2s).
+        // 1. If user hasn't vocalized yet and within initial 8.5s timeout, restart recognition seamlessly
+        if (!speechHasStarted && elapsed < 8500) {
+          try {
+            recognition.start();
+            return;
+          } catch {}
+        }
+
+        // 2. If user has vocalized and auto-finalize timer is still running (pause < 2.2s), keep listening!
+        if (speechHasStarted && autoFinalizeTimer && elapsed < 30000) {
+          try {
+            recognition.start();
+            return;
+          } catch {}
+        }
+
         dispatchFinal('recognition_onend');
       };
 
       recognition.onerror = (e: any) => {
-        if (this.activeTurnId !== turnId) return;
+        if (this.activeTurnId !== turnId || hasFinalized) return;
+        const elapsed = performance.now() - this.startTime;
+
         if (e.error === 'no-speech') {
+          // On mobile Android, no-speech is emitted aggressively after ~1.5s of silence
+          if (!speechHasStarted && elapsed < 8500) {
+            try {
+              recognition.start();
+              return;
+            } catch {}
+          }
           dispatchFinal('no_speech_event');
         } else if (e.error === 'aborted') {
           dispatchFinal('aborted_event');

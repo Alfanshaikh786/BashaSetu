@@ -22,13 +22,37 @@ export class S2STTSEngine {
   private static currentPlaybackTurnId: string | null = null;
   private static playbackWatchdog: any = null;
 
+  static {
+    try {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          try {
+            window.speechSynthesis.getVoices();
+          } catch {}
+        };
+      }
+    } catch {}
+  }
+
   /**
    * Pre-warms voices in the browser so initial playback has zero loading delay.
+   * On mobile (iOS Safari & Android Chrome), also primes the speech synthesis engine
+   * during the user's synchronous tap gesture so delayed asynchronous playback is never blocked.
    */
   public static prewarmVoices(): void {
     try {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.getVoices();
+
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
+        if (isMobile) {
+          try {
+            const primer = new SpeechSynthesisUtterance('');
+            primer.volume = 0;
+            primer.rate = 1.0;
+            window.speechSynthesis.speak(primer);
+          } catch {}
+        }
       }
     } catch {}
   }

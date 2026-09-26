@@ -102,6 +102,24 @@ export class S2SAudioPipeline {
   }
 
   /**
+   * Unlocks mobile audio context synchronously within a user touch/click gesture.
+   */
+  public static unlockAudioContext(): void {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        const dummyCtx = new AudioContextClass();
+        if (dummyCtx.state === 'suspended') {
+          dummyCtx.resume().catch(() => {});
+        }
+        setTimeout(() => {
+          try { dummyCtx.close(); } catch {}
+        }, 150);
+      }
+    } catch {}
+  }
+
+  /**
    * Initializes microphone capture and starts transmitting 16 kHz Mono PCM chunks.
    */
   public async start(options: AudioPipelineOptions = {}): Promise<void> {
@@ -131,8 +149,12 @@ export class S2SAudioPipeline {
         this.audioContext = new AudioContextClass();
       }
 
-      if (this.audioContext.state === 'suspended') {
-        await this.audioContext.resume();
+      if (this.audioContext && this.audioContext.state === 'suspended') {
+        try {
+          await this.audioContext.resume();
+        } catch (e) {
+          console.warn('[S2SAudioPipeline] AudioContext resume notice:', e);
+        }
       }
 
       const nativeSampleRate = this.audioContext.sampleRate;
@@ -143,9 +165,13 @@ export class S2SAudioPipeline {
       // 4096 buffer size at native rate (~85ms chunks)
       this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
 
-      // Create a zero-gain mute node to prevent local mic feedback into speakers
+      // Create mute node to prevent local mic feedback into speakers.
+      // On mobile WebKit (iOS Safari), gain of exact 0.0 causes WebKit power-saver
+      // to prune the audio graph and halt onaudioprocess callbacks. We set 0.00001 (-100 dB, inaudible).
       this.muteGain = this.audioContext.createGain();
-      this.muteGain.gain.setValueAtTime(0.0, this.audioContext.currentTime);
+      const isWebKit = typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent || '') || /AppleWebKit/.test(navigator.userAgent || ''));
+      const muteValue = isWebKit ? 0.00001 : 0.0;
+      this.muteGain.gain.setValueAtTime(muteValue, this.audioContext.currentTime);
 
       this.processor.onaudioprocess = (e) => {
         if (!this.isCapturing) return;

@@ -50,7 +50,18 @@ export interface ASRStatusResponse {
   device: string;
 }
 
-const getBaseHostname = () => (typeof window !== 'undefined' && window.location?.hostname) ? window.location.hostname : '127.0.0.1';
+const getBaseHostname = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('bhasha_backend_host');
+      if (stored && stored.trim()) return stored.trim();
+    } catch {}
+    if (window.location?.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return window.location.hostname;
+    }
+  }
+  return '127.0.0.1';
+};
 const getProtocol = () => (typeof window !== 'undefined' && window.location?.protocol === 'https:') ? 'https:' : 'http:';
 const getWsProtocol = () => (typeof window !== 'undefined' && window.location?.protocol === 'https:') ? 'wss:' : 'ws:';
 

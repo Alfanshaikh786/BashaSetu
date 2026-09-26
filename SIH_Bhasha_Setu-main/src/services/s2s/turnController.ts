@@ -24,6 +24,7 @@ import { DomainSafetyEngine } from './domainSafetyEngine';
 import { S2STTSEngine } from './ttsEngine';
 import { S2SStorage } from './s2sStorage';
 import { S2SAutoStopController, s2sDebugLog } from './autoStopController';
+import { S2SAudioPipeline } from './audioPipeline';
 import { S2STurnLogger } from './s2sLogger';
 
 export interface TurnControllerCallbacks {
@@ -116,6 +117,19 @@ export class S2STurnController {
 
     // Pre-initialize storage
     S2SStorage.init().catch(() => {});
+
+    // Mobile app lifecycle listeners (screen lock, app minimize, incoming phone call)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && this.stateMachine.isListening()) {
+          console.log('[S2STurnController] App minimized/hidden on mobile; cleanly stopping listening.');
+          this.stopListening();
+        }
+      });
+      window.addEventListener('pagehide', () => {
+        this.stopTurn();
+      });
+    }
   }
 
   public setAutoSpeak(enabled: boolean): void {
@@ -149,6 +163,10 @@ export class S2STurnController {
     }
     this.isStartingTurn = true;
 
+    // Synchronously prime mobile AudioContext & SpeechSynthesis on the user's tap gesture
+    S2SAudioPipeline.unlockAudioContext();
+    S2STTSEngine.prewarmVoices();
+
     try {
       // 1. Guardrail Check (Ethical gating on Mundari & Ho)
       const notice = LanguageCapabilityRegistry.getGuardrailNotice(sourceLang);
@@ -176,7 +194,6 @@ export class S2STurnController {
       if (!started) return false;
 
       this.callbacks.onStatusMessage?.(`Listening to ${sourceLangName}... Speak clearly.`);
-      S2STTSEngine.prewarmVoices();
 
       await this.asrAdapter.startListening(sourceLang, turnId);
       this.autoStopController.start(turnId);
