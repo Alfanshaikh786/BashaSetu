@@ -36,28 +36,19 @@ export class S2STTSEngine {
 
   private static hasPrimedVoices = false;
 
+  public static isSpeaking(): boolean {
+    return this.isSpeakingNow;
+  }
+
   /**
    * Pre-warms voices in the browser so initial playback has zero loading delay.
-   * On mobile (iOS Safari & Android Chrome), primes the speech synthesis engine once
-   * during initial user gesture so delayed asynchronous playback is never blocked.
+   * Probes getVoices() without interrupting active microphone input.
    */
   public static prewarmVoices(): void {
     try {
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.getVoices();
-
-        if (!this.hasPrimedVoices) {
-          this.hasPrimedVoices = true;
-          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
-          if (isMobile) {
-            try {
-              const primer = new SpeechSynthesisUtterance(' ');
-              primer.volume = 0.001;
-              primer.rate = 1.0;
-              window.speechSynthesis.speak(primer);
-            } catch {}
-          }
-        }
+        this.hasPrimedVoices = true;
       }
     } catch {}
   }

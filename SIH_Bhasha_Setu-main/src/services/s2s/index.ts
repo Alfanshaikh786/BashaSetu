@@ -23,3 +23,4 @@ export * from './pronunciationDictionary';
 export * from './linguisticEvaluationSets';
 export * from './speechEvaluationPipeline';
 export * from './accuracyDashboardModel';
+export * from './mobileCapability';

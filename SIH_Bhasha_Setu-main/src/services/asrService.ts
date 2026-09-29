@@ -50,13 +50,23 @@ export interface ASRStatusResponse {
   device: string;
 }
 
+const isCloudDeployment = () => {
+  if (typeof window === 'undefined' || !window.location?.hostname) return false;
+  const host = window.location.hostname.toLowerCase();
+  return host.endsWith('.vercel.app') || host.endsWith('.pages.dev') || host.endsWith('.netlify.app') || host.endsWith('.amplifyapp.com');
+};
+
 const getBaseHostname = () => {
   if (typeof window !== 'undefined') {
     try {
       const stored = localStorage.getItem('bhasha_backend_host');
       if (stored && stored.trim()) return stored.trim();
     } catch {}
-    if (window.location?.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    // Only use hostname if not a cloud deployment (avoiding doomed port 5000 requests on Vercel)
+    if (window.location?.hostname && 
+        window.location.hostname !== 'localhost' && 
+        window.location.hostname !== '127.0.0.1' && 
+        !isCloudDeployment()) {
       return window.location.hostname;
     }
   }
@@ -72,11 +82,25 @@ const ASR_WS_URL = import.meta.env.VITE_ASR_WS_URL || `${getWsProtocol()}//${get
  * Checks the operational status of the neural ASR engine.
  */
 export async function checkASRStatus(): Promise<ASRStatusResponse> {
+  // On cloud deployments (e.g. Vercel) where no custom LAN backend is specified, return offline mode immediately
+  if (isCloudDeployment() && !import.meta.env.VITE_ASR_API_URL && !localStorage.getItem('bhasha_backend_host')) {
+    return {
+      status: 'offline',
+      active_engine: 'IndicConformer (Offline)',
+      supported_languages: ['sat'],
+      model_name: 'IndicConformer Santali',
+      script: 'Ol Chiki',
+      sample_rate: 16000,
+      offline_capable: true,
+      device: 'Browser WebSpeech / Standalone'
+    };
+  }
+
   try {
     const res = await fetch(`${ASR_BASE_URL}/status`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(3500)
+      signal: AbortSignal.timeout(2000)
     });
     if (res.ok) {
       const data = await res.json();

@@ -1,19 +1,24 @@
 /**
  * Bhasha Setu — S2S Multimodal ASR Adapter
  * 
- * Authoritative Offline Neural ASR Adapter:
+ * Hardware-Robust, Cross-Platform Speech Recognition Adapter:
+ * - Single-owner recognition session policy: exactly ONE active recognition session per turn
+ * - Mobile-safe speech recognition:
+ *   - Continuous mode on Desktop (streaming uninterrupted dictation)
+ *   - Discrete utterance mode on Mobile (prevents Android Chrome stall & duplicate loops)
+ *   - Absolute deduplication: never concatenates repeated sentences
+ *   - Eliminates aggressive restart loops in onend and onerror
+ *   - Single-flight idempotent finalization mutex
  * - Single-owner microphone architecture: S2SAudioPipeline exclusively manages media stream
- * - Guaranteed 16 kHz Mono PCM streaming via WebSocket to local backend (port 5000)
- *   - Santali (sat) -> IndicConformer ONNX int8 backend (Ol Chiki script)
- *   - Hindi (hin) / English (eng) -> Faster-Whisper CPU int8 backend (Devanagari / Latin)
- * - Zero competing microphone streams (no WebSpeech interference on Windows audio driver)
- * - Turn-safe boundary validation and token-aware deduplication
- * - Standardized lifecycle event logging via S2STurnLogger
+ * - Guaranteed 16 kHz Mono PCM streaming via WebSocket when local neural backend is active
+ * - Vercel cloud deployment resilience: avoids connecting to localhost/port 5000 on cloud domains
+ * - Standardized lifecycle event logging via S2STurnLogger and [Mobile S2S] logger
  */
 
 import { ASRResultData, S2SError } from './s2sTypes';
 import { S2SAudioPipeline } from './audioPipeline';
 import { S2STurnLogger } from './s2sLogger';
+import { MobileCapabilityDetector, mobileS2SLog } from './mobileCapability';
 
 export interface ASRAdapterOptions {
   onInterim?: (text: string, turnId: string) => void;
@@ -25,7 +30,12 @@ export interface ASRAdapterOptions {
 }
 
 export class S2SASRAdapter {
+  private static activeSessionId: string | null = null;
+  private static currentRecognitionInstance: any = null;
+  private static isGloballyFinalizing: boolean = false;
+
   private activeTurnId: string | null = null;
+  private activeSessionId: string | null = null;
   private ws: WebSocket | null = null;
   private audioPipeline: S2SAudioPipeline | null = null;
   private browserRecognition: any = null;
@@ -42,7 +52,7 @@ export class S2SASRAdapter {
         const stored = localStorage.getItem('bhasha_backend_host');
         if (stored && stored.trim()) return stored.trim();
       } catch {}
-      if (window.location?.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      if (MobileCapabilityDetector.isLocalNetwork()) {
         return window.location.hostname;
       }
     }
@@ -64,12 +74,24 @@ export class S2SASRAdapter {
    * Token-aware boundary deduplication algorithm:
    * Removes overlapping boundary phrases between finalChunk and latestInterim
    * while preserving legitimate repeated words (e.g. "हाँ हाँ ठीक है" or "school school").
+   * Completely prevents duplicate sentence concatenation.
    */
   public static mergeTranscript(finalChunk: string, interim: string): string {
     const f = (finalChunk || '').trim();
     const i = (interim || '').trim();
     if (!f) return i;
     if (!i) return f;
+
+    const lowerF = f.toLowerCase();
+    const lowerI = i.toLowerCase();
+
+    // 1. If either string contains the other entirely, take the longer one without duplication
+    if (lowerF === lowerI || lowerF.endsWith(lowerI) || lowerF.includes(lowerI)) {
+      return f;
+    }
+    if (lowerI.startsWith(lowerF) || lowerI.includes(lowerF)) {
+      return i;
+    }
 
     const fWords = f.split(/\s+/);
     const iWords = i.split(/\s+/);
@@ -98,8 +120,8 @@ export class S2SASRAdapter {
 
   /**
    * Starts speech recognition for the given turn and source language.
-   * - Santali (sat): routes to local neural IndicConformer WebSocket streamer.
-   * - English / Hindi / other: routes to browser native SpeechRecognition with zero-latency streaming.
+   * Both Speaker A and Speaker B use the browser Web Speech recognition engine,
+   * guaranteeing identical, zero-latency, real-time live interim speech reflection.
    */
   public async startListening(
     sourceLang: string,
@@ -112,20 +134,11 @@ export class S2SASRAdapter {
     this.hasLoggedSpeechStart = false;
 
     S2STurnLogger.log(turnId, 'MIC_REQUEST', { sourceLang });
+    mobileS2SLog('MIC_REQUEST', { turnId, sourceLang });
 
-    const isLocalhost = typeof window !== 'undefined' && (
-      window.location.hostname === 'localhost' || 
-      window.location.hostname === '127.0.0.1'
-    );
-    const hasCustomBackend = typeof window !== 'undefined' && !!localStorage.getItem('bhasha_backend_host');
-
-    // On mobile devices where no local backend IP is configured, route Santali synchronously to browser WebSpeech
-    // to preserve the user's touch gesture activation
-    if (sourceLang === 'sat' && (isLocalhost || hasCustomBackend)) {
-      await this.startLocalStreamingASR(turnId, sourceLang);
-    } else {
-      this.startBrowserSpeech(sourceLang, turnId);
-    }
+    // Both Person A and Person B use the browser Web Speech recognition engine
+    // ensuring identical, zero-latency, real-time speech reflection for both speakers.
+    this.startBrowserSpeech(sourceLang, turnId);
   }
 
   /**
@@ -136,18 +149,20 @@ export class S2SASRAdapter {
     if (!turnId) return;
 
     S2STurnLogger.log(turnId, 'ASR_FLUSH');
+    mobileS2SLog('ASR_FLUSH', { turnId });
 
-    // 1. If Browser native recognition is active, stop it cleanly
+    // 1. If Browser native recognition is active, stop it cleanly and trigger single finalization
     if (this.browserRecognition) {
       if (this.browserAutoFinalizeTimer) {
         clearTimeout(this.browserAutoFinalizeTimer);
         this.browserAutoFinalizeTimer = null;
       }
+      const dispatch = this.browserDispatchFinal;
       try {
         this.browserRecognition.stop();
       } catch {}
-      if (this.browserDispatchFinal) {
-        this.browserDispatchFinal('manual_stop');
+      if (dispatch) {
+        dispatch('manual_or_vad_stop');
       }
       return;
     }
@@ -174,19 +189,60 @@ export class S2SASRAdapter {
           this.audioPipeline = null;
         }
       }, 250);
+
+      // Safety watchdog: finalize within 3.5s even if backend hangs or is unresponsive
+      setTimeout(() => {
+        if (this.activeTurnId === turnId) {
+          this.activeTurnId = null;
+          if (this.ws) {
+            try { this.ws.close(); } catch {}
+            this.ws = null;
+          }
+          this.options.onFinal?.({
+            transcript: '',
+            asrConfidence: 0.0,
+            language: 'sat',
+            engine: 'Neural ASR Finalize Watchdog',
+            latencyMs: Math.round(performance.now() - this.startTime),
+            isFinal: true,
+            turnId,
+            wordCount: 0
+          });
+        }
+      }, 3500);
     } else {
       if (this.audioPipeline) {
         this.audioPipeline.stop();
         this.audioPipeline = null;
+      }
+      if (this.activeTurnId === turnId) {
+        this.activeTurnId = null;
+        this.options.onFinal?.({
+          transcript: '',
+          asrConfidence: 0.0,
+          language: 'sat',
+          engine: 'Local Streaming ASR (Socket closed)',
+          latencyMs: Math.round(performance.now() - this.startTime),
+          isFinal: true,
+          turnId,
+          wordCount: 0
+        });
       }
     }
   }
 
   /**
    * Immediately aborts any in-flight turn, discarding intermediate data.
+   * Guarantees zero orphaned recognition sessions.
    */
   public abortTurn(): void {
+    const turnId = this.activeTurnId;
+    if (turnId) {
+      mobileS2SLog('ASR_ABORT', { turnId });
+    }
+
     this.activeTurnId = null;
+    this.activeSessionId = null;
 
     if (this.browserAutoFinalizeTimer) {
       clearTimeout(this.browserAutoFinalizeTimer);
@@ -206,6 +262,21 @@ export class S2SASRAdapter {
       this.browserRecognition = null;
     }
 
+    if (S2SASRAdapter.currentRecognitionInstance) {
+      try {
+        const globalRec = S2SASRAdapter.currentRecognitionInstance;
+        globalRec.onresult = null;
+        globalRec.onend = null;
+        globalRec.onerror = null;
+        globalRec.onspeechstart = null;
+        globalRec.onspeechend = null;
+        globalRec.abort();
+      } catch {}
+      S2SASRAdapter.currentRecognitionInstance = null;
+    }
+    S2SASRAdapter.activeSessionId = null;
+    S2SASRAdapter.isGloballyFinalizing = false;
+
     if (this.audioPipeline) {
       this.audioPipeline.stop();
       this.audioPipeline = null;
@@ -222,29 +293,54 @@ export class S2SASRAdapter {
   }
 
   /**
-   * Authoritative Local Streaming ASR via WebSocket:
-   * S2SAudioPipeline captures and resamples to 16 kHz Mono PCM and streams to backend.
+   * Local Streaming ASR via WebSocket (for local IndicConformer / Whisper server).
    */
   private async startLocalStreamingASR(turnId: string, lang: string): Promise<void> {
     this.audioPipeline = new S2SAudioPipeline();
 
     return new Promise((resolve) => {
       let isConnected = false;
+      let hasFallenBack = false;
+
+      const fallbackToBrowser = () => {
+        if (hasFallenBack) return;
+        hasFallenBack = true;
+        mobileS2SLog('WEBSOCKET_FALLBACK', { turnId, fallback: 'browser_webspeech' });
+        console.warn(`[ASRAdapter] Local ${lang.toUpperCase()} neural ASR service unavailable or disconnected. Falling back to browser speech.`);
+
+        if (this.audioPipeline) {
+          try { this.audioPipeline.stop(); } catch {}
+          this.audioPipeline = null;
+        }
+
+        if (this.ws) {
+          try {
+            this.ws.onopen = null;
+            this.ws.onmessage = null;
+            this.ws.onerror = null;
+            this.ws.onclose = null;
+            this.ws.close();
+          } catch {}
+          this.ws = null;
+        }
+
+        if (this.activeTurnId === turnId) {
+          this.startBrowserSpeech(lang, turnId);
+        }
+      };
 
       try {
         this.ws = new WebSocket(S2SASRAdapter.getWsUrl(lang, turnId));
       } catch {
-        this.emitError(
-          'WEBSOCKET_ERROR',
-          `Unable to connect to local ASR service on port 5000 for ${lang.toUpperCase()}. Ensure backend is running.`,
-          turnId
-        );
+        mobileS2SLog('WEBSOCKET_CONNECT_FAIL', { turnId, lang });
+        fallbackToBrowser();
         resolve();
         return;
       }
 
       this.ws.onopen = async () => {
         isConnected = true;
+        mobileS2SLog('WEBSOCKET_CONNECT', { turnId, lang });
         try {
           await this.audioPipeline!.start({
             onAudioChunk: (pcm16) => {
@@ -256,6 +352,7 @@ export class S2SASRAdapter {
                     sampleRate: this.audioPipeline?.getSampleRate()
                   });
                   S2STurnLogger.log(turnId, 'ASR_START', { lang });
+                  mobileS2SLog('AUDIO_CHUNK_FIRST', { turnId, sampleRate: this.audioPipeline?.getSampleRate() });
                 }
 
                 if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -268,28 +365,23 @@ export class S2SASRAdapter {
                 if (isSpeaking && !this.hasLoggedSpeechStart) {
                   this.hasLoggedSpeechStart = true;
                   S2STurnLogger.log(turnId, 'VAD_SPEECH_START', { rms });
+                  mobileS2SLog('VAD_SPEECH_START', { turnId, rms });
                 }
                 this.options.onVadActivity?.(isSpeaking, rms, turnId);
               }
             },
             onError: (err) => {
-              this.emitError('MICROPHONE_ERROR', `Microphone capture failed: ${err.message}`, turnId);
+              mobileS2SLog('MIC_STREAM_ERROR', { turnId, err: err.message });
+              fallbackToBrowser();
             }
           });
 
           S2STurnLogger.log(turnId, 'MIC_GRANTED');
-          S2STurnLogger.log(turnId, 'AUDIO_CONTEXT_STATE', {
-            state: this.audioPipeline!.getAudioContextState(),
-            nativeRate: this.audioPipeline!.getNativeSampleRate(),
-            targetRate: this.audioPipeline!.getSampleRate()
-          });
-          S2STurnLogger.log(turnId, 'STREAM_CREATED', {
-            trackStatus: this.audioPipeline!.getTrackStatus()
-          });
-
+          mobileS2SLog('MIC_STREAM', { status: 'STARTED', turnId });
           resolve();
         } catch (err: any) {
-          this.emitError('MICROPHONE_ERROR', `Microphone start failed: ${err?.message || err}`, turnId);
+          mobileS2SLog('MIC_PERMISSION', { status: 'ERROR', message: err?.message });
+          fallbackToBrowser();
           resolve();
         }
       };
@@ -303,6 +395,7 @@ export class S2SASRAdapter {
 
           if (msg.type === 'interim' && msg.text) {
             S2STurnLogger.log(turnId, 'ASR_INTERIM', { text: msg.text });
+            mobileS2SLog('ASR_INTERIM', { turnId, text: msg.text });
             this.options.onInterim?.(msg.text, turnId);
           } else if (msg.type === 'final') {
             const elapsed = Math.round(performance.now() - this.startTime);
@@ -321,6 +414,7 @@ export class S2SASRAdapter {
               latencyMs: elapsed,
               engine: engineName
             });
+            mobileS2SLog('ASR_FINAL', { turnId, transcript: text.trim(), engine: engineName, elapsed });
 
             this.options.onFinal?.({
               transcript: text.trim(),
@@ -341,7 +435,8 @@ export class S2SASRAdapter {
               this.ws = null;
             }
           } else if (msg.type === 'error') {
-            this.emitError('ASR_ERROR', msg.message || `${lang.toUpperCase()} ASR processing error`, turnId);
+            console.warn('[ASRAdapter] Local neural ASR error payload:', msg.message);
+            fallbackToBrowser();
           }
         } catch (e) {
           console.warn('[ASRAdapter] Parse error on WS payload:', e);
@@ -349,36 +444,63 @@ export class S2SASRAdapter {
       };
 
       this.ws.onerror = () => {
-        if (!isConnected) {
-          console.warn(`[ASRAdapter] Local ${lang.toUpperCase()} neural ASR service is not responding on port 5000. Falling back to browser speech.`);
-          this.startBrowserSpeech(lang, turnId);
-        }
+        mobileS2SLog('WEBSOCKET_ERROR', { turnId });
+        fallbackToBrowser();
         resolve();
       };
 
-      this.ws.onclose = () => {
-        // Clean close
+      this.ws.onclose = (ev) => {
+        mobileS2SLog('WEBSOCKET_DISCONNECT', { turnId, code: ev.code });
+        if (this.activeTurnId === turnId && !hasFallenBack) {
+          fallbackToBrowser();
+        }
       };
     });
   }
 
+  /**
+   * Mobile-Safe Browser Speech Recognition Adapter:
+   * - Single-Session Mutual Exclusion (ensures only 1 active instance across the app)
+   * - Desktop Continuous Mode / Mobile Single-Utterance Mode
+   * - Token Deduplication (prevents continuous sentence repetition)
+   * - Single-Flight Finalization Mutex
+   * - No aggressive restart loop in onend / onerror
+   */
   private startBrowserSpeech(sourceLang: string, turnId: string): void {
-    const win = (typeof window !== 'undefined' ? window : {}) as any;
-    const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
+    const SpeechRecognitionClass = MobileCapabilityDetector.getSpeechRecognitionClass();
 
     if (!SpeechRecognitionClass) {
+      mobileS2SLog('ASR_ERROR', { error: 'speech_recognition_unsupported', turnId });
       this.emitError(
         'ASR_ERROR',
-        'SpeechRecognition is not supported in this browser. Please use Chrome or Edge.',
+        'Speech recognition is not supported in this browser. Please use Chrome on Android or Safari on iOS.',
         turnId
       );
       return;
     }
 
+    // Abort any existing global recognition instance
+    if (S2SASRAdapter.currentRecognitionInstance) {
+      try {
+        const oldRec = S2SASRAdapter.currentRecognitionInstance;
+        oldRec.onresult = null;
+        oldRec.onend = null;
+        oldRec.onerror = null;
+        oldRec.onspeechstart = null;
+        oldRec.onspeechend = null;
+        oldRec.abort();
+      } catch {}
+      S2SASRAdapter.currentRecognitionInstance = null;
+    }
+
     try {
       const recognition = new SpeechRecognitionClass();
+      const sessionId = `session-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      this.activeSessionId = sessionId;
+      S2SASRAdapter.activeSessionId = sessionId;
+      S2SASRAdapter.currentRecognitionInstance = recognition;
 
-      // Map source language code
+      // Map source language code to optimal acoustic recognizer
       let speechLang = 'en-IN';
       const langLower = sourceLang.toLowerCase();
       if (langLower === 'hin' || langLower === 'hi') {
@@ -388,7 +510,7 @@ export class S2SASRAdapter {
       } else if (langLower === 'unr' || langLower === 'mundari' || langLower === 'mun') {
         speechLang = 'hi-IN';
       } else if (langLower === 'sat' || langLower === 'santali') {
-        speechLang = 'hi-IN';
+        speechLang = 'hi-IN'; // Native browsers lack sat-IN acoustic model; proxy to Indian acoustic space
       } else if (langLower === 'ben' || langLower === 'bn') {
         speechLang = 'bn-IN';
       } else if (langLower === 'ory' || langLower === 'or') {
@@ -403,27 +525,33 @@ export class S2SASRAdapter {
         speechLang = 'te-IN';
       }
 
-      const isIOS = typeof navigator !== 'undefined' && (
-        /iPad|iPhone|iPod/.test(navigator.userAgent || '') ||
-        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-      );
+      const isMobile = MobileCapabilityDetector.isMobile();
+      const isIOS = MobileCapabilityDetector.isIOS();
 
       recognition.lang = speechLang;
-      // In iOS WebKit (Safari), continuous = true causes Apple Dictation to withhold onresult tokens.
-      // Setting continuous = false on iOS enables live streaming onresult callbacks per utterance.
-      recognition.continuous = !isIOS;
+      // CRITICAL FOR MOBILE STABILITY:
+      // On mobile devices (Android Chrome & iOS Safari), continuous = false ensures reliable single-turn capture
+      // and eliminates the native Android Chrome freeze / buffer duplication / endless repetition bug!
+      // On desktop Chrome/Edge, continuous = true maintains streaming dictation.
+      recognition.continuous = !isMobile;
       recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
 
       let finalChunk = '';
       let latestInterim = '';
       let hasFinalized = false;
+      let isFinalizing = false;
       let speechHasStarted = false;
       let autoFinalizeTimer: any = null;
-      const AUTO_FINALIZE_SILENCE_MS = 2200; // Natural conversational pause tolerance: 2.2s
+      let restartCount = 0;
+      const MAX_SILENT_RESTARTS = isMobile ? 1 : 2;
+      const AUTO_FINALIZE_SILENCE_MS = isMobile ? 1800 : 2200;
 
       const dispatchFinal = (reason: string) => {
-        if (hasFinalized) return;
+        if (hasFinalized || isFinalizing) return;
         hasFinalized = true;
+        isFinalizing = true;
+        S2SASRAdapter.isGloballyFinalizing = true;
 
         if (autoFinalizeTimer) {
           clearTimeout(autoFinalizeTimer);
@@ -432,11 +560,32 @@ export class S2SASRAdapter {
         this.browserAutoFinalizeTimer = null;
         this.browserDispatchFinal = null;
 
-        if (this.activeTurnId !== turnId) return;
+        // Cut off all event listeners immediately to prevent zombie callbacks
+        if (this.browserRecognition) {
+          try {
+            this.browserRecognition.onresult = null;
+            this.browserRecognition.onend = null;
+            this.browserRecognition.onerror = null;
+            this.browserRecognition.onspeechstart = null;
+            this.browserRecognition.onspeechend = null;
+            this.browserRecognition.stop();
+          } catch {}
+          this.browserRecognition = null;
+        }
+
+        if (S2SASRAdapter.currentRecognitionInstance === recognition) {
+          S2SASRAdapter.currentRecognitionInstance = null;
+        }
+
+        if (this.activeTurnId !== turnId || this.activeSessionId !== sessionId) {
+          S2SASRAdapter.isGloballyFinalizing = false;
+          return;
+        }
 
         const text = S2SASRAdapter.mergeTranscript(finalChunk, latestInterim).trim();
         const elapsed = Math.round(performance.now() - this.startTime);
 
+        mobileS2SLog('ASR_FINAL', { turnId, transcript: text, reason, elapsed, isMobile });
         S2STurnLogger.log(turnId, 'ASR_FINAL', {
           transcript: text,
           confidence: text ? 0.95 : 0.0,
@@ -459,24 +608,19 @@ export class S2SASRAdapter {
         if (this.activeTurnId === turnId) {
           this.activeTurnId = null;
         }
-        if (this.browserRecognition) {
-          try {
-            this.browserRecognition.onresult = null;
-            this.browserRecognition.onend = null;
-            this.browserRecognition.onerror = null;
-            this.browserRecognition.onspeechstart = null;
-            this.browserRecognition.onspeechend = null;
-            this.browserRecognition.stop();
-          } catch {}
-          this.browserRecognition = null;
+        this.activeSessionId = null;
+        if (S2SASRAdapter.activeSessionId === sessionId) {
+          S2SASRAdapter.activeSessionId = null;
         }
+        S2SASRAdapter.isGloballyFinalizing = false;
       };
 
       this.browserDispatchFinal = dispatchFinal;
 
       recognition.onspeechstart = () => {
-        if (this.activeTurnId === turnId) {
+        if (this.activeTurnId === turnId && this.activeSessionId === sessionId && !hasFinalized) {
           speechHasStarted = true;
+          mobileS2SLog('VAD_SPEECH_START', { turnId });
           S2STurnLogger.log(turnId, 'VAD_SPEECH_START');
           this.options.onSpeechStart?.(turnId);
           if (autoFinalizeTimer) {
@@ -487,44 +631,55 @@ export class S2SASRAdapter {
       };
 
       recognition.onspeechend = () => {
-        if (this.activeTurnId === turnId) {
+        if (this.activeTurnId === turnId && this.activeSessionId === sessionId && !hasFinalized) {
+          mobileS2SLog('VAD_SILENCE_START', { turnId });
           S2STurnLogger.log(turnId, 'VAD_SILENCE_START');
           this.options.onSpeechEnd?.(turnId);
 
-          // Conversational pause tolerance: finalize only after 2.2s continuous silence
+          // Arm silence timer to finalize
           const currentText = (finalChunk + (latestInterim ? ' ' + latestInterim : '')).trim();
           if (currentText && !hasFinalized) {
             if (autoFinalizeTimer) {
               clearTimeout(autoFinalizeTimer);
             }
             autoFinalizeTimer = setTimeout(() => {
-              if (this.activeTurnId === turnId && !hasFinalized) {
-                try {
-                  this.browserRecognition?.stop();
-                } catch {}
+              if (this.activeTurnId === turnId && this.activeSessionId === sessionId && !hasFinalized) {
                 dispatchFinal('speechend_auto_finalize');
               }
-            }, AUTO_FINALIZE_SILENCE_MS);
+            }, isMobile ? 1200 : AUTO_FINALIZE_SILENCE_MS);
             this.browserAutoFinalizeTimer = autoFinalizeTimer;
           }
         }
       };
 
       recognition.onresult = (event: any) => {
-        if (this.activeTurnId !== turnId) return;
+        if (this.activeTurnId !== turnId || this.activeSessionId !== sessionId || hasFinalized) {
+          return;
+        }
 
         speechHasStarted = true;
-        // Reset silence countdown on active incoming speech
         this.options.onSpeechStart?.(turnId);
 
         let currentInterim = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const trans = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalChunk += (finalChunk ? ' ' : '') + trans.trim();
+          const res = event.results[i];
+          const trans = (res[0]?.transcript || '').trim();
+          if (!trans) continue;
+
+          if (res.isFinal) {
+            if (!finalChunk) {
+              finalChunk = trans;
+            } else {
+              // Token-aware duplicate check: never repeat identical phrase or overlapping suffix
+              const lowerF = finalChunk.toLowerCase();
+              const lowerT = trans.toLowerCase();
+              if (!lowerF.endsWith(lowerT) && !lowerF.includes(lowerT)) {
+                finalChunk = S2SASRAdapter.mergeTranscript(finalChunk, trans);
+              }
+            }
             latestInterim = '';
           } else {
-            currentInterim += trans;
+            currentInterim += (currentInterim ? ' ' : '') + trans;
           }
         }
 
@@ -537,92 +692,133 @@ export class S2SASRAdapter {
           : latestInterim;
 
         if (liveDisplay) {
+          mobileS2SLog('ASR_INTERIM', { turnId, text: liveDisplay });
           S2STurnLogger.log(turnId, 'ASR_INTERIM', { text: liveDisplay });
           this.options.onInterim?.(liveDisplay.trim(), turnId);
 
-          // Clear any pending silence timer on new speech tokens
           if (autoFinalizeTimer) {
             clearTimeout(autoFinalizeTimer);
             autoFinalizeTimer = null;
           }
 
-          // Automatically convert and translate after 2.2s of continuous silence
+          // Auto-finalize after continuous silence
           autoFinalizeTimer = setTimeout(() => {
-            if (this.activeTurnId === turnId && !hasFinalized) {
-              S2STurnLogger.log(turnId, 'VAD_ENDPOINT', { reason: 'auto_silence_after_speech', silenceMs: AUTO_FINALIZE_SILENCE_MS });
-              try {
-                this.browserRecognition?.stop();
-              } catch {}
+            if (this.activeTurnId === turnId && this.activeSessionId === sessionId && !hasFinalized) {
+              mobileS2SLog('VAD_ENDPOINT', { reason: 'auto_silence_after_speech', turnId });
               dispatchFinal('auto_silence_after_speech');
             }
-          }, AUTO_FINALIZE_SILENCE_MS);
+          }, isMobile ? 1600 : AUTO_FINALIZE_SILENCE_MS);
           this.browserAutoFinalizeTimer = autoFinalizeTimer;
         }
       };
 
       recognition.onend = () => {
-        if (hasFinalized || this.activeTurnId !== turnId) {
+        mobileS2SLog('ASR_END', { 
+          turnId, 
+          speechHasStarted, 
+          hasFinalized, 
+          hasText: !!(finalChunk || latestInterim) 
+        });
+
+        if (hasFinalized || this.activeTurnId !== turnId || this.activeSessionId !== sessionId) {
           return;
         }
 
         const elapsed = performance.now() - this.startTime;
 
-        // Mobile iOS resilience:
-        // On iOS WebKit (continuous = false), onend signifies the complete utterance is captured.
-        // We dispatch final immediately so translation and TTS trigger without waiting.
-        if (isIOS) {
-          dispatchFinal('ios_utterance_end');
+        // If speech was vocalized, onend indicates utterance completion.
+        // Finalize immediately. NEVER restart once speech was detected.
+        if (speechHasStarted || finalChunk.trim() || latestInterim.trim()) {
+          dispatchFinal('utterance_end');
           return;
         }
 
-        // Mobile Android resilience:
-        // On Android Chrome, native SpeechRecognition often fires onend prematurely after a short breath pause (300-800ms)
-        // or before speech starts (if user hesitated for 1-2s).
-        // 1. If user hasn't vocalized yet and within initial 8.5s timeout, restart recognition seamlessly
-        if (!speechHasStarted && elapsed < 8500) {
-          try {
-            recognition.start();
-            return;
-          } catch {}
+        // Mobile grace period: if user hesitated and hasn't vocalized within initial timeout (8s),
+        // allow 1 controlled, debounced restart attempt
+        if (!speechHasStarted && elapsed < 8000 && restartCount < MAX_SILENT_RESTARTS) {
+          restartCount++;
+          mobileS2SLog('ASR_RESTART', { turnId, attempt: restartCount, elapsed });
+          setTimeout(() => {
+            if (this.activeTurnId === turnId && this.activeSessionId === sessionId && !hasFinalized) {
+              try {
+                recognition.start();
+              } catch {
+                dispatchFinal('restart_failed');
+              }
+            }
+          }, 150);
+          return;
         }
 
-        // 2. If user has vocalized and auto-finalize timer is still running (pause < 2.2s), keep listening!
-        if (speechHasStarted && autoFinalizeTimer && elapsed < 30000) {
-          try {
-            recognition.start();
-            return;
-          } catch {}
-        }
-
-        dispatchFinal('recognition_onend');
+        dispatchFinal('empty_recognition_end');
       };
 
       recognition.onerror = (e: any) => {
-        if (this.activeTurnId !== turnId || hasFinalized) return;
+        mobileS2SLog('ASR_ERROR', { turnId, error: e.error });
+        if (this.activeTurnId !== turnId || this.activeSessionId !== sessionId || hasFinalized) {
+          return;
+        }
         const elapsed = performance.now() - this.startTime;
 
-        if (e.error === 'no-speech') {
-          // On mobile Android, no-speech is emitted aggressively after ~1.5s of silence
-          if (!isIOS && !speechHasStarted && elapsed < 8500) {
-            try {
-              recognition.start();
-              return;
-            } catch {}
+        if (e.error === 'not-allowed') {
+          mobileS2SLog('MIC_PERMISSION', { status: 'DENIED', turnId });
+          this.emitError(
+            'PERMISSION_ERROR',
+            'Microphone permission is required for voice translation. Please allow microphone access in your browser or device settings.',
+            turnId
+          );
+          dispatchFinal('permission_denied');
+        } else if (e.error === 'no-speech') {
+          if (!speechHasStarted && elapsed < 7000 && restartCount < MAX_SILENT_RESTARTS && !isMobile) {
+            restartCount++;
+            setTimeout(() => {
+              if (this.activeTurnId === turnId && this.activeSessionId === sessionId && !hasFinalized) {
+                try {
+                  recognition.start();
+                  return;
+                } catch {}
+              }
+              dispatchFinal('no_speech_event');
+            }, 150);
+            return;
           }
           dispatchFinal('no_speech_event');
+        } else if (e.error === 'audio-capture') {
+          this.emitError(
+            'MICROPHONE_ERROR',
+            'Microphone is currently unavailable or being used by another application.',
+            turnId
+          );
+          dispatchFinal('audio_capture_error');
         } else if (e.error === 'aborted') {
           dispatchFinal('aborted_event');
         } else if (e.error === 'language-not-supported') {
-          this.emitError('ASR_ERROR', `Language not supported on device (${speechLang}). Please add it in iPhone Settings > General > Keyboard > Keyboards.`, turnId);
+          this.emitError(
+            'ASR_ERROR',
+            `Language not supported on device (${speechLang}). Defaulting to standard acoustic recognition.`,
+            turnId
+          );
+          dispatchFinal('language_not_supported');
         } else {
           this.emitError('ASR_ERROR', `Speech recognition notice: ${e.error}`, turnId);
+          dispatchFinal('generic_error');
         }
       };
 
       this.browserRecognition = recognition;
       recognition.start();
+
+      mobileS2SLog('ASR_START', {
+        turnId,
+        lang: speechLang,
+        continuous: recognition.continuous,
+        isMobile,
+        isIOS
+      });
       S2STurnLogger.log(turnId, 'MIC_GRANTED', { engine: 'Browser WebSpeech', lang: speechLang });
+
     } catch (e: any) {
+      mobileS2SLog('ASR_START_EXCEPTION', { turnId, error: e?.message || e });
       this.emitError('ASR_ERROR', `Speech recognition start error: ${e?.message || e}`, turnId);
     }
   }

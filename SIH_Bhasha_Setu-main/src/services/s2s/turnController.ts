@@ -26,6 +26,7 @@ import { S2SStorage } from './s2sStorage';
 import { S2SAutoStopController, s2sDebugLog } from './autoStopController';
 import { S2SAudioPipeline } from './audioPipeline';
 import { S2STurnLogger } from './s2sLogger';
+import { mobileS2SLog } from './mobileCapability';
 
 export interface TurnControllerCallbacks {
   onStateChange?: (state: S2SState, turnId?: string) => void;
@@ -50,6 +51,7 @@ export class S2STurnController {
   private isStartingTurn: boolean = false;
   private autoStopController: S2SAutoStopController;
   private finalizedTurnIds: Set<string> = new Set();
+  private spokenTurnIds: Set<string> = new Set();
 
   constructor(callbacks: TurnControllerCallbacks = {}) {
     this.callbacks = callbacks;
@@ -148,6 +150,10 @@ export class S2STurnController {
     return this.stateMachine.getState();
   }
 
+  public isBusy(): boolean {
+    return this.stateMachine.isBusy();
+  }
+
   /**
    * Initiates a new spoken turn for Speaker A or Speaker B.
    */
@@ -163,12 +169,19 @@ export class S2STurnController {
     }
     this.isStartingTurn = true;
 
-    // Synchronously prime mobile AudioContext & SpeechSynthesis on the user's tap gesture
+    // 1. If TTS playback is currently active, stop it immediately and allow a 60ms acoustic settling pause
+    // so the phone speaker does not feed sound back into the microphone.
+    if (this.stateMachine.isSpeaking() || S2STTSEngine.isSpeaking()) {
+      S2STTSEngine.stop();
+      this.callbacks.onSpeakingTurnIdChange?.(null);
+      await new Promise(resolve => setTimeout(resolve, 60));
+    }
+
+    // 2. Synchronously prime mobile AudioContext within the user's tap gesture
     S2SAudioPipeline.unlockAudioContext();
-    S2STTSEngine.prewarmVoices();
 
     try {
-      // 1. Guardrail Check (Ethical gating on Mundari & Ho)
+      // 3. Guardrail Check (Ethical gating on Mundari & Ho)
       const notice = LanguageCapabilityRegistry.getGuardrailNotice(sourceLang);
       if (notice) {
         this.callbacks.onGuardrailNotice?.(notice);
@@ -176,13 +189,17 @@ export class S2STurnController {
       }
       this.callbacks.onGuardrailNotice?.(null);
 
-      // 2. Turn-Lock: Cleanly terminate any active session
+      // 4. Turn-Lock: Cleanly terminate any prior active session
       this.stopTurn();
+
+      // Mobile HAL settling delay (50ms) to ensure previous microphone stream has unbound from OS
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       const turnId = `turn-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       this.currentTurnId = turnId;
       this.activeSpeaker = speaker;
       S2STurnLogger.log(turnId, 'TURN_ID', { speaker, sourceLang, targetLang, speakerRoleText });
+      mobileS2SLog('TURN_START', { turnId, speaker, sourceLang, targetLang });
 
       const started = this.stateMachine.transitionTo('LISTENING', {
         turnId,
@@ -227,11 +244,11 @@ export class S2STurnController {
     this.asrAdapter.abortTurn();
     S2STTSEngine.stop();
     this.stateMachine.abortCurrentTurn();
-    this.activeSpeaker = null;
-    this.currentTurnId = null;
     this.callbacks.onSpeakingTurnIdChange?.(null);
     this.callbacks.onStatusMessage?.(null);
-    this.callbacks.onInterimText?.('', 'speakerA');
+    this.callbacks.onInterimText?.('', this.activeSpeaker || 'speakerA');
+    this.activeSpeaker = null;
+    this.currentTurnId = null;
   }
 
   public getAutoStopController(): S2SAutoStopController {
@@ -292,12 +309,14 @@ export class S2STurnController {
   ): Promise<void> {
     const turnId = asrResult?.turnId;
     if (!turnId || this.currentTurnId !== turnId || this.finalizedTurnIds.has(turnId)) {
+      mobileS2SLog('Duplicate finalization ignored', { turnId, currentTurn: this.currentTurnId });
       return;
     }
     this.finalizedTurnIds.add(turnId);
 
     s2sDebugLog(turnId, `handleASRFinalized transcript="${asrResult.transcript}"`);
     S2STurnLogger.log(turnId, 'FINALIZE_START', { transcript: asrResult.transcript, confidence: asrResult.asrConfidence });
+    mobileS2SLog('TURN_FINALIZE', { turnId, transcript: asrResult.transcript, confidence: asrResult.asrConfidence });
 
     const ctx = this.stateMachine.getContext();
     const sourceLang = manualOverrides?.sourceLang || ctx.sourceLang || 'hin';
@@ -310,7 +329,9 @@ export class S2STurnController {
     if (!rawTranscript) {
       s2sDebugLog(turnId, 'No speech detected, resetting to IDLE');
       S2STurnLogger.log(turnId, 'IDLE', { reason: 'empty_transcript' });
+      mobileS2SLog('IDLE_EMPTY_TRANSCRIPT', { turnId });
       this.stateMachine.resetToIdle();
+      this.callbacks.onInterimText?.('', this.activeSpeaker || 'speakerA');
       this.activeSpeaker = null;
       this.currentTurnId = null;
       this.callbacks.onStatusMessage?.('No speech detected. Please try again.');
@@ -319,7 +340,6 @@ export class S2STurnController {
           this.callbacks.onStatusMessage?.(null);
         }
       }, 4000);
-      this.callbacks.onInterimText?.('', 'speakerA');
       return;
     }
 
@@ -328,6 +348,7 @@ export class S2STurnController {
     this.stateMachine.transitionTo('TRANSLATING', { turnId });
     this.callbacks.onStatusMessage?.('Translating speech...');
     S2STurnLogger.log(turnId, 'TRANSLATION_START', { sourceLang, targetLang, rawTranscript });
+    mobileS2SLog('TRANSLATION_START', { turnId, sourceLang, targetLang, rawTranscript });
 
     const translationRes = await TranslationDecisionEngine.resolveTranslation(
       rawTranscript,
@@ -336,6 +357,12 @@ export class S2STurnController {
     );
 
     S2STurnLogger.log(turnId, 'TRANSLATION_END', {
+      targetText: translationRes.targetText,
+      confidence: translationRes.translationConfidence,
+      method: translationRes.method
+    });
+    mobileS2SLog('TRANSLATION_COMPLETE', {
+      turnId,
       targetText: translationRes.targetText,
       confidence: translationRes.translationConfidence,
       method: translationRes.method
@@ -391,14 +418,20 @@ export class S2STurnController {
     // Commit to UI
     this.callbacks.onTurnComplete?.(turnRecord);
     this.callbacks.onStatusMessage?.(null);
-    this.callbacks.onInterimText?.('', 'speakerA');
+    this.callbacks.onInterimText?.('', this.activeSpeaker || 'speakerA');
 
-    // 4. Auto-Speak if enabled and valid target text exists (never speak unavailable message)
+    // 4. Auto-Speak with Single-TTS Turn Lock (guarantees exactly 1 audio playback per turn)
     const isUnavailable = !translationRes.targetText || 
       translationRes.targetText.includes('unavailable') || 
       translationRes.translationConfidence === 0.0;
 
     if (this.autoSpeak && translationRes.targetText && !isUnavailable) {
+      if (this.spokenTurnIds.has(turnId)) {
+        mobileS2SLog('Duplicate TTS ignored for turn', { turnId });
+        return;
+      }
+      this.spokenTurnIds.add(turnId);
+
       s2sDebugLog(turnId, 'state=TTS_PROCESSING');
       this.stateMachine.transitionTo('TTS_PROCESSING', { turnId });
       this.callbacks.onSpeakingTurnIdChange?.(turnId);
@@ -406,6 +439,7 @@ export class S2STurnController {
       s2sDebugLog(turnId, 'state=PLAYING');
       this.stateMachine.transitionTo('PLAYING', { turnId });
       S2STurnLogger.log(turnId, 'TTS_START', { targetText: translationRes.targetText, targetLang });
+      mobileS2SLog('TTS_START', { turnId, targetText: translationRes.targetText, targetLang });
 
       const textToSpeak = translationRes.transliteration || translationRes.targetText;
 
@@ -417,6 +451,7 @@ export class S2STurnController {
           rate: this.voiceSpeed,
           onStart: () => {
             S2STurnLogger.log(turnId, 'TTS_PLAYBACK_START');
+            mobileS2SLog('TTS_PLAYBACK_START', { turnId });
             this.callbacks.onSpeakingTurnIdChange?.(turnId);
           },
           onEnd: () => {
@@ -424,6 +459,8 @@ export class S2STurnController {
               s2sDebugLog(turnId, 'TTS complete -> state=IDLE');
               S2STurnLogger.log(turnId, 'TTS_PLAYBACK_END');
               S2STurnLogger.log(turnId, 'IDLE');
+              mobileS2SLog('TTS_END', { turnId });
+              mobileS2SLog('STATE → IDLE', { turnId });
               this.callbacks.onSpeakingTurnIdChange?.(null);
               this.stateMachine.resetToIdle();
               this.activeSpeaker = null;
@@ -435,6 +472,8 @@ export class S2STurnController {
               s2sDebugLog(turnId, 'TTS error -> state=IDLE');
               S2STurnLogger.log(turnId, 'TTS_PLAYBACK_END', { error: true });
               S2STurnLogger.log(turnId, 'IDLE');
+              mobileS2SLog('TTS_ERROR', { turnId });
+              mobileS2SLog('STATE → IDLE', { turnId });
               this.callbacks.onSpeakingTurnIdChange?.(null);
               this.stateMachine.resetToIdle();
               this.activeSpeaker = null;
@@ -446,6 +485,7 @@ export class S2STurnController {
     } else {
       s2sDebugLog(turnId, 'state=IDLE');
       S2STurnLogger.log(turnId, 'IDLE');
+      mobileS2SLog('STATE → IDLE', { turnId });
       this.stateMachine.resetToIdle();
       this.activeSpeaker = null;
       this.currentTurnId = null;

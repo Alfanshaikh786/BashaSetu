@@ -322,7 +322,7 @@ export class S2SDiagnostics {
   }
 
   /**
-   * Generates a 16-parameter Mobile Compatibility Checklist report.
+   * Generates a comprehensive Mobile Compatibility Checklist report with platform capabilities.
    */
   public static async runMobileChecklist(): Promise<Record<string, string>> {
     const report = await this.runDiagnostics();
@@ -331,6 +331,7 @@ export class S2SDiagnostics {
     const asr = report.components.ASR_IndicConformer?.health || 'DEGRADED';
     const trans = report.components.Translation_Local?.health || 'READY';
     const tts = report.components.TTS_Synthesis?.health || 'READY';
+    const hasWebSpeech = report.environment.hasSpeechRecognition;
 
     let nativeRate = 48000;
     try {
@@ -343,8 +344,13 @@ export class S2SDiagnostics {
     } catch {}
 
     const isConnected = asr === 'READY';
+    const isMobile = typeof navigator !== 'undefined' && (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '') || navigator.maxTouchPoints > 1);
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isCloud = host.endsWith('.vercel.app') || host.endsWith('.pages.dev') || host.endsWith('.netlify.app');
 
     return {
+      BROWSER_PLATFORM: `${report.environment.browser} (${report.environment.os})`,
+      DEPLOYMENT_MODE: isCloud ? 'VERCEL / CLOUD (Client-Side Mode)' : 'LOCAL_DEVELOPMENT',
       MIC_PERMISSION: mic === 'READY' ? 'PASS' : (mic === 'DEGRADED' ? 'PROMPT' : 'FAIL'),
       MIC_STREAM: mic !== 'FAILED' && mic !== 'UNAVAILABLE' ? 'PASS' : 'FAIL',
       AUDIO_CONTEXT: audioCtx === 'READY' ? 'PASS' : 'FAIL',
@@ -352,13 +358,14 @@ export class S2SDiagnostics {
       CHANNEL_COUNT: '1 (Mono)',
       PCM_FORMAT: '16-bit Signed Integer (PCM16)',
       VAD: 'PASS (Dual-threshold Hysteresis & 512ms Pre-roll)',
-      ASR_CONNECTION: isConnected ? 'PASS (WebSocket Local Server)' : 'LOCAL_WEBSPEECH_FALLBACK',
-      ASR_AUDIO_SEND: 'PASS (16 kHz PCM Chunks Streamed)',
-      ASR_RESPONSE: isConnected ? 'PASS' : 'WEBSPEECH_STANDALONE',
+      SPEECH_RECOGNITION: hasWebSpeech 
+        ? (isMobile ? 'PASS (Mobile Discrete Single-Utterance Mode)' : 'PASS (Desktop Continuous Mode)') 
+        : 'UNAVAILABLE (Chrome/Safari Recommended)',
+      ASR_CONNECTION: isConnected ? 'PASS (WebSocket Local Server)' : (hasWebSpeech ? 'PASS (Browser WebSpeech Adapter)' : 'PHRASEBOOK_FALLBACK'),
       TRANSLATION: trans === 'READY' ? 'PASS (Local SQLite WASM v2.4)' : 'DEGRADED',
       TTS_VOICE: tts === 'READY' ? 'PASS (Indian English/Hindi + Phonetic Bridge)' : 'FALLBACK_CHIME',
-      TTS_PLAYBACK: tts === 'READY' ? 'PASS' : 'FAIL',
-      WEBSOCKET: isConnected ? 'PASS' : 'STANDALONE_FALLBACK',
+      TTS_PLAYBACK: tts === 'READY' ? 'PASS (Single-Turn Lock)' : 'FAIL',
+      WEBSOCKET: isConnected ? 'PASS' : (isCloud ? 'STANDALONE_CLIENT' : 'LOCAL_OFFLINE'),
       NETWORK: report.environment.isOnline ? 'ONLINE' : 'OFFLINE',
       APP_LIFECYCLE: typeof document !== 'undefined' && !document.hidden ? 'ACTIVE (Foreground)' : 'BACKGROUND'
     };

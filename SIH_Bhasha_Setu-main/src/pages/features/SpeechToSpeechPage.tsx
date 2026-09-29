@@ -180,8 +180,25 @@ export const SpeechToSpeechPage: React.FC = () => {
   useEffect(() => {
     const controller = new S2STurnController({
       onInterimText: (interim, speaker) => {
-        setActiveSpeaker(speaker);
-        setLiveTranscript(interim);
+        if (interim && interim.trim()) {
+          setActiveSpeaker(speaker);
+          setLiveTranscript(interim);
+        } else {
+          setLiveTranscript('');
+        }
+      },
+      onStateChange: (state) => {
+        if (state === 'LISTENING') {
+          const spk = controllerRef.current?.getActiveSpeaker();
+          if (spk) {
+            setActiveSpeaker(spk);
+          }
+        } else if (state === 'IDLE' || state === 'ERROR' || state === 'CANCELLED') {
+          if (!controllerRef.current?.isBusy() && !controllerRef.current?.getActiveSpeaker()) {
+            setActiveSpeaker(null);
+            setLiveTranscript('');
+          }
+        }
       },
       onTurnComplete: (record: S2STurnRecord) => {
         const newMsg: ChatMessage = {
