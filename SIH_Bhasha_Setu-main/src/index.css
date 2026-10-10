@@ -189,3 +189,109 @@ body {
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* ─── Slow, Elegant Floating Motion System (Phase 5) ─── */
+@keyframes floatSlow1 {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes floatSlow2 {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes floatSlow3 {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes floatSlowDrift {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(0.4deg);
+  }
+}
+
+@keyframes scrollEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Floating animation classes with staggered durations and delays */
+.animate-float-1 {
+  animation: floatSlow1 7.5s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: floatSlow2 8.8s ease-in-out 1.2s infinite;
+}
+
+.animate-float-3 {
+  animation: floatSlow3 6.8s ease-in-out 2.4s infinite;
+}
+
+.animate-float-4 {
+  animation: floatSlow1 9.4s ease-in-out 3.6s infinite;
+}
+
+.animate-float-drift {
+  animation: floatSlowDrift 8s ease-in-out infinite;
+}
+
+.reveal-fade-up {
+  animation: scrollEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Touch friendly minimum target */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Smooth tap feedback */
+.active-press {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.active-press:active {
+  transform: scale(0.96);
+}
+
+/* ─── Reduced-Motion Accessibility (Phase 1 & Phase 5D) ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-float-1,
+  .animate-float-2,
+  .animate-float-3,
+  .animate-float-4,
+  .animate-float-drift,
+  .reveal-fade-up {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+

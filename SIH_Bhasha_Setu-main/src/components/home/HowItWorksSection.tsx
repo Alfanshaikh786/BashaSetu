@@ -14,10 +14,10 @@ import {
 
 export const HowItWorksSection: React.FC = () => {
   return (
-    <section id="how-it-works" className="py-10 sm:py-20 lg:py-28 px-4 sm:px-6 lg:px-8 bg-[#F9F6F0] border-t border-[#D5E8D5] relative overflow-hidden">
+    <section id="how-it-works" className="py-12 sm:py-20 lg:py-28 px-4 sm:px-6 lg:px-8 bg-[#F9F6F0] border-t border-[#D5E8D5] relative overflow-hidden">
       
-      {/* Decorative Botanical Foliage in Background */}
-      <div className="absolute top-12 -right-8 w-56 h-56 pointer-events-none opacity-20 select-none -z-10">
+      {/* Decorative Botanical Foliage in Background with Slow Floating Animation */}
+      <div className="absolute top-12 -right-8 w-56 h-56 pointer-events-none opacity-20 select-none -z-10 animate-float-1">
         <svg viewBox="0 0 200 200" className="w-full h-full">
           <path d="M 140 140 Q 180 80, 160 20 Q 110 60, 140 140 Z" fill="#238B45" />
           <path d="M 120 120 Q 150 60, 100 20 Q 90 80, 120 120 Z" fill="#176B3A" />
@@ -25,7 +25,7 @@ export const HowItWorksSection: React.FC = () => {
         </svg>
       </div>
 
-      <div className="absolute bottom-12 -left-8 w-56 h-56 pointer-events-none opacity-20 select-none -z-10">
+      <div className="absolute bottom-12 -left-8 w-56 h-56 pointer-events-none opacity-20 select-none -z-10 animate-float-2">
         <svg viewBox="0 0 200 200" className="w-full h-full">
           <path d="M 60 140 Q 20 80, 40 20 Q 90 60, 60 140 Z" fill="#238B45" />
           <path d="M 80 120 Q 50 60, 100 20 Q 110 80, 80 120 Z" fill="#176B3A" />
@@ -37,7 +37,7 @@ export const HowItWorksSection: React.FC = () => {
       <div className="max-w-6xl mx-auto flex items-center justify-between mb-4 px-4 select-none">
         
         {/* Top Left: "Simple Steps Real Change" Sticker */}
-        <div className="hidden sm:flex flex-col items-start -rotate-6">
+        <div className="hidden sm:flex flex-col items-start -rotate-6 animate-float-drift">
           <div className="relative bg-[#EAF5EA] border border-[#D5E8D5] rounded-2xl px-4 py-2 shadow-xs flex flex-col items-center">
             {/* Sun rays above sticker */}
             <div className="absolute -top-3 -left-2 flex gap-1">
@@ -52,7 +52,7 @@ export const HowItWorksSection: React.FC = () => {
         </div>
 
         {/* Top Right: "From Voices to Opportunities" */}
-        <div className="hidden sm:flex flex-col items-end rotate-6">
+        <div className="hidden sm:flex flex-col items-end rotate-6 animate-float-drift">
           <span className="font-handwriting text-2xl text-[#17212B] font-semibold text-right leading-tight">
             From<br />Voices to Opportunities
           </span>
@@ -64,8 +64,8 @@ export const HowItWorksSection: React.FC = () => {
       </div>
 
       {/* Section Header */}
-      <div className="max-w-4xl mx-auto flex flex-col items-center text-center mb-12 sm:mb-16 relative z-10">
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#17212B] tracking-tight">
+      <div className="max-w-4xl mx-auto flex flex-col items-center text-center mb-10 sm:mb-16 relative z-10">
+        <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#17212B] tracking-tight" style={{ fontFamily: "'Domine', Georgia, serif" }}>
           How It <span className="text-[#238B45]">Works</span>
         </h2>
         
@@ -87,7 +87,7 @@ export const HowItWorksSection: React.FC = () => {
         </div>
 
         {/* 3 Step Cards Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-8 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 sm:gap-10 lg:gap-8 relative z-10">
           
           {/* STEP 01: Choose Your Languages */}
           <div className="flex flex-col items-center text-center px-4 relative group">
@@ -97,7 +97,7 @@ export const HowItWorksSection: React.FC = () => {
               <div className="relative w-full max-w-[280px] h-48 flex items-center justify-center select-none">
                 
                 {/* Floating Globe Disc with Leaves (Top Left) */}
-                <div className="absolute -top-1 left-2 z-20 flex items-center">
+                <div className="absolute -top-1 left-2 z-20 flex items-center animate-float-1">
                   <div className="w-11 h-11 rounded-full bg-[#EAF5EA] border border-[#D5E8D5] flex items-center justify-center shadow-xs">
                     <Globe className="w-5 h-5 text-[#238B45]" />
                   </div>
@@ -162,7 +162,7 @@ export const HowItWorksSection: React.FC = () => {
               <div className="relative w-full max-w-[280px] h-48 flex items-center justify-center select-none">
                 
                 {/* Floating Mic Disc with Waveform (Bottom Left) */}
-                <div className="absolute -bottom-2 -left-2 z-20 flex items-center gap-1.5">
+                <div className="absolute -bottom-2 -left-2 z-20 flex items-center gap-1.5 animate-float-2">
                   <div className="w-11 h-11 rounded-full bg-[#EAF5EA] border border-[#D5E8D5] flex items-center justify-center shadow-xs">
                     <Mic className="w-5 h-5 text-[#238B45]" />
                   </div>
@@ -240,8 +240,8 @@ export const HowItWorksSection: React.FC = () => {
             <div className="mb-6 w-full flex justify-center">
               <div className="relative w-full max-w-[280px] h-48 flex items-center justify-center select-none">
                 
-                {/* Floating "✨ Translated" Badge on Top Left */}
-                <div className="absolute -top-2 left-2 z-20 flex items-center">
+                {/* Floating "✨ Translated" Badge on Top Left with Slow Floating Animation */}
+                <div className="absolute -top-2 left-2 z-20 flex items-center animate-float-3">
                   <div className="px-3 py-1 rounded-full bg-white border border-[#D5E8D5] text-[10px] font-bold text-[#238B45] flex items-center gap-1.5 shadow-sm">
                     <Sparkles className="w-3 h-3 text-[#238B45]" />
                     <span>Translated</span>

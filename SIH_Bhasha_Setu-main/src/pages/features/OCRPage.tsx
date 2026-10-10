@@ -257,7 +257,7 @@ export const OCRPage: React.FC = () => {
 
         {/* Desktop Detailed Header (hidden on mobile) */}
         <div className="hidden md:flex w-full py-4 flex-col items-center text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-green-50 border border-[#d1ead4] text-xs font-bold text-[#14532d]">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-green-50 border border-[#d1ead4] text-xs font-bold text-[#14532d] shadow-2xs animate-float-1">
             <Sparkles className="w-3.5 h-3.5 text-[#249144]" /> Multi-Script OCR & Document Scanner
           </div>
           <h1 className="domine-bold text-3xl sm:text-4xl md:text-5xl font-bold leading-snug text-slate-900">
@@ -391,13 +391,13 @@ export const OCRPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center justify-center gap-2 shadow-xs transition active:scale-95 cursor-pointer"
+                    className="px-4 py-2.5 min-h-[44px] rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center justify-center gap-2 shadow-xs transition active:scale-95 cursor-pointer"
                   >
                     <Upload className="w-4 h-4 text-slate-500" /> Browse Image
                   </button>
                   <button
                     onClick={() => cameraInputRef.current?.click()}
-                    className="px-4 py-2.5 rounded-xl border border-[#bbf7d0] bg-[#dcfce7] hover:bg-[#bbf7d0] text-xs font-bold text-[#14532d] flex items-center justify-center gap-2 shadow-xs transition active:scale-95 cursor-pointer"
+                    className="px-4 py-2.5 min-h-[44px] rounded-xl border border-[#bbf7d0] bg-[#dcfce7] hover:bg-[#bbf7d0] text-xs font-bold text-[#14532d] flex items-center justify-center gap-2 shadow-xs transition active:scale-95 cursor-pointer"
                   >
                     <Camera className="w-4 h-4 text-[#249144]" /> Open Camera
                   </button>
@@ -427,7 +427,7 @@ export const OCRPage: React.FC = () => {
                           setSelectedScript(mappedScript);
                           handleProcessOCR(doc.previewUrl, mappedScript, doc.groundTruthText);
                         }}
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold transition cursor-pointer ${
+                        className={`px-3.5 py-2 min-h-[38px] rounded-xl border text-xs font-semibold transition cursor-pointer active:scale-95 ${
                           imageName === doc.title
                             ? 'bg-emerald-100 border-[#249144] text-[#14532d] font-bold shadow-xs'
                             : 'bg-slate-100 hover:bg-emerald-50 hover:border-[#249144] border-slate-200 text-slate-700'

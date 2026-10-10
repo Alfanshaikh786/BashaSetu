@@ -90,17 +90,17 @@ export const EmergencyModePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-red-950/20 pt-24 pb-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-red-950/20 pt-6 sm:pt-20 lg:pt-24 pb-16 px-3.5 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
 
         {/* Top Emergency Banner */}
-        <div className="bg-red-600 text-white rounded-3xl p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="bg-red-600 text-white rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold uppercase tracking-wider">
               <AlertTriangle className="w-4 h-4 text-amber-200" />
               <span>RAPID EMERGENCY MODE</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-wide">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-wide">
               Emergency Tribal Communication Aid
             </h1>
             <p className="text-xs sm:text-sm text-red-100">
@@ -108,9 +108,9 @@ export const EmergencyModePage: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-3 bg-white/10 rounded-2xl border border-white/20 text-center sm:text-right">
+          <div className="p-3 bg-white/10 rounded-2xl border border-white/20 text-left sm:text-right flex-shrink-0">
             <span className="text-[10px] uppercase font-bold text-red-200 block">National Emergency</span>
-            <span className="text-2xl font-black tracking-widest text-white">112 / 108</span>
+            <span className="text-xl sm:text-2xl font-black tracking-widest text-white">112 / 108</span>
           </div>
         </div>
 
@@ -128,7 +128,7 @@ export const EmergencyModePage: React.FC = () => {
           {EMERGENCY_PHRASES.map(card => (
             <div
               key={card.id}
-              className="bg-white rounded-3xl p-5 border-2 border-red-200 shadow-sm hover:border-red-500 transition-all space-y-3"
+              className="bg-white rounded-3xl p-4 sm:p-5 border-2 border-red-200 shadow-sm hover:border-red-500 transition-all space-y-3"
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <span className="text-xs font-black uppercase tracking-wider text-red-700 flex items-center gap-1.5">
@@ -138,17 +138,17 @@ export const EmergencyModePage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => playTextSpeech(card.sat, 'sat')}
-                    className="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-800 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                    className="p-2 sm:px-3 sm:py-2 min-h-[44px] rounded-xl bg-red-50 hover:bg-red-100 text-red-800 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer active:scale-95"
                   >
                     <Volume2 className="w-4 h-4 text-red-600" />
-                    <span>Santali Audio</span>
+                    <span className="hidden sm:inline">Santali Audio</span>
                   </button>
                   <button
                     onClick={() => playTextSpeech(card.hi, 'hin')}
-                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                    className="p-2 sm:px-3 sm:py-2 min-h-[44px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer active:scale-95"
                   >
                     <Volume2 className="w-4 h-4 text-slate-600" />
-                    <span>Hindi Audio</span>
+                    <span className="hidden sm:inline">Hindi Audio</span>
                   </button>
                 </div>
               </div>

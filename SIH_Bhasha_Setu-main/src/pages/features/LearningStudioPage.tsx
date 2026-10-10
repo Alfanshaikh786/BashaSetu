@@ -884,14 +884,14 @@ export const LearningStudioPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F6F0] py-10 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#F9F6F0] pt-16 sm:pt-24 pb-20 px-3.5 sm:px-6 lg:px-8 font-sans">
+      <div className="max-w-6xl mx-auto space-y-6 sm:space-y-8">
         
         {/* ========================================================================= */}
         {/* HEADER                                                                    */}
         {/* ========================================================================= */}
         <div className="text-center space-y-3 print:hidden">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-100/70 border border-emerald-200 text-[#14532d] text-xs font-bold tracking-wide shadow-2xs">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-100/70 border border-emerald-200 text-[#14532d] text-xs font-bold tracking-wide shadow-2xs animate-float-1">
             <GraduationCap className="w-4 h-4 text-[#249144]" />
             <span>Interactive Pedagogy & Tribal Education Suite</span>
           </div>
@@ -909,65 +909,65 @@ export const LearningStudioPage: React.FC = () => {
         {/* TOP TAB SWITCHER (Flashcards, Worksheets, Quiz & Assessment)              */}
         {/* ========================================================================= */}
         <div className="flex justify-center print:hidden">
-          <div className="bg-slate-200/80 p-1.5 rounded-2xl flex flex-wrap items-center gap-1.5 max-w-4xl w-full">
+          <div className="bg-slate-200/80 p-1.5 rounded-2xl flex items-center overflow-x-auto hide-scrollbar sm:flex-wrap gap-1.5 max-w-4xl w-full">
             <button
               onClick={() => handleTabChange('flashcards')}
-              className={`flex-1 min-w-[130px] py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 min-w-[120px] sm:min-w-[130px] min-h-[44px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
                 activeTab === 'flashcards'
                   ? 'bg-white text-[#14532d] shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <Layers className="w-4 h-4 text-[#249144]" />
-              <span>3D Flashcards</span>
+              <span className="whitespace-nowrap">3D Flashcards</span>
             </button>
 
             <button
               onClick={() => handleTabChange('worksheets')}
-              className={`flex-1 min-w-[130px] py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 min-w-[120px] sm:min-w-[130px] min-h-[44px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
                 activeTab === 'worksheets'
                   ? 'bg-white text-[#14532d] shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <FileText className="w-4 h-4 text-[#249144]" />
-              <span>Worksheets</span>
+              <span className="whitespace-nowrap">Worksheets</span>
             </button>
 
             <button
               onClick={() => handleTabChange('assessment')}
-              className={`flex-1 min-w-[130px] py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 min-w-[120px] sm:min-w-[130px] min-h-[44px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
                 activeTab === 'assessment'
                   ? 'bg-white text-[#14532d] shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <Target className="w-4 h-4 text-[#249144]" />
-              <span>Assessment</span>
+              <span className="whitespace-nowrap">Assessment</span>
             </button>
 
             <button
               onClick={() => handleTabChange('voice')}
-              className={`flex-1 min-w-[130px] py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 min-w-[120px] sm:min-w-[130px] min-h-[44px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
                 activeTab === 'voice'
                   ? 'bg-white text-[#14532d] shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <Mic className="w-4 h-4 text-[#249144]" />
-              <span>Voice Studio</span>
+              <span className="whitespace-nowrap">Voice Studio</span>
             </button>
 
             <button
               onClick={() => handleTabChange('analytics')}
-              className={`flex-1 min-w-[130px] py-3 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 min-w-[120px] sm:min-w-[130px] min-h-[44px] py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 cursor-pointer active:scale-95 ${
                 activeTab === 'analytics'
                   ? 'bg-white text-[#14532d] shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <GraduationCap className="w-4 h-4 text-[#249144]" />
-              <span>Teacher Analytics</span>
+              <span className="whitespace-nowrap">Teacher Analytics</span>
             </button>
           </div>
         </div>

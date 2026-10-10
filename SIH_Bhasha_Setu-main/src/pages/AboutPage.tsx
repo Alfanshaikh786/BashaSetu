@@ -68,8 +68,8 @@ const IMPACT_AREAS = [
 
 export const AboutPage: React.FC = () => {
   return (
-    <section className="min-h-screen bg-[#F9F6F0] pt-28 pb-20 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto space-y-16">
+    <section className="min-h-screen bg-[#F9F6F0] pt-16 sm:pt-24 pb-16 sm:pb-20 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto space-y-12 sm:space-y-16">
         
         {/* 1. Header Section */}
         <div className="w-full flex flex-col items-center text-center space-y-4">
@@ -107,42 +107,45 @@ export const AboutPage: React.FC = () => {
 
           {/* 3-Column Grid for Santali, Mundari, and Ho */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {PRESERVED_LANGUAGES.map((lang, idx) => (
-              <div
-                key={idx}
-                className="bg-white rounded-2xl border border-emerald-200/90 p-6 sm:p-7 shadow-xs hover:shadow-md hover:border-[#249144] transition-all space-y-4"
-              >
-                {/* Language Title & Speaker Badge */}
-                <div className="space-y-2">
-                  <h3 className="text-xl font-bold text-slate-900 tracking-tight">
-                    {lang.name}
-                  </h3>
-                  <span className="inline-block bg-[#e8f5ec] text-[#249144] border border-[#d1ead4] rounded-full px-3.5 py-0.5 text-xs font-bold">
-                    {lang.speakers}
-                  </span>
-                </div>
+            {PRESERVED_LANGUAGES.map((lang, idx) => {
+              const floatClasses = ['animate-float-1', 'animate-float-2', 'animate-float-3'];
+              return (
+                <div
+                  key={idx}
+                  className={`bg-white rounded-2xl border border-emerald-200/90 p-6 sm:p-7 shadow-xs hover:shadow-md hover:border-[#249144] transition-all space-y-4 ${floatClasses[idx % floatClasses.length]}`}
+                >
+                  {/* Language Title & Speaker Badge */}
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-bold text-slate-900 tracking-tight">
+                      {lang.name}
+                    </h3>
+                    <span className="inline-block bg-[#e8f5ec] text-[#249144] border border-[#d1ead4] rounded-full px-3.5 py-0.5 text-xs font-bold">
+                      {lang.speakers}
+                    </span>
+                  </div>
 
-                {/* History Block */}
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    History:
-                  </h4>
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans">
-                    {lang.history}
-                  </p>
-                </div>
+                  {/* History Block */}
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      History:
+                    </h4>
+                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans">
+                      {lang.history}
+                    </p>
+                  </div>
 
-                {/* Importance Block */}
-                <div className="space-y-1">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    Importance:
-                  </h4>
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans">
-                    {lang.importance}
-                  </p>
+                  {/* Importance Block */}
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      Importance:
+                    </h4>
+                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans">
+                      {lang.importance}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Summary Note Banner */}

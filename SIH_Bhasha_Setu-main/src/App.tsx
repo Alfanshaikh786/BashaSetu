@@ -93,11 +93,11 @@ const PageLoadingFallback: React.FC = () => (
   </div>
 );
 
-/** Layout wrapper for all pages with mobile app navigation clearance */
+/** Layout wrapper for all pages with mobile app navigation clearance and safe areas */
 const WithNavbar: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="min-h-screen flex flex-col bg-[#F9F6F0] text-[#17212B]">
+  <div className="min-h-screen flex flex-col bg-[#F9F6F0] text-[#17212B] w-full max-w-full overflow-x-hidden">
     <Navbar />
-    <div className="flex-1 flex flex-col pb-20 md:pb-0">
+    <div className="flex-1 flex flex-col pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:pb-0 w-full max-w-full">
       {children}
     </div>
   </div>

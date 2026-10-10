@@ -222,7 +222,7 @@ export const DictionaryPage: React.FC = () => {
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   placeholder="Search 6,800+ words/sentences in English, Hindi, or Ol Chiki (e.g. cow, गाय, ᱜᱟᱹᱭ)..."
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 outline-none focus:border-[#249144] focus:bg-white transition"
+                  className="w-full pl-10 pr-4 py-2.5 min-h-[44px] rounded-xl bg-slate-50 border border-slate-200 text-xs sm:text-sm text-slate-800 outline-none focus:border-[#249144] focus:bg-white transition"
                 />
               </div>
 
@@ -230,7 +230,7 @@ export const DictionaryPage: React.FC = () => {
                 value={selectedLanguage}
                 onChange={(e) => handleLanguageChange(e.target.value)}
                 aria-label="Filter by language"
-                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 outline-none hover:border-[#249144] cursor-pointer"
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 min-h-[44px] text-xs font-semibold text-slate-700 outline-none hover:border-[#249144] cursor-pointer"
               >
                 <option value="All">All Languages</option>
                 {SUPPORTED_LANGUAGES.map(l => (
@@ -245,7 +245,7 @@ export const DictionaryPage: React.FC = () => {
                 <button
                   key={i}
                   onClick={() => handleCategoryChange(cat)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${selectedCategory === cat ? 'bg-[#249144] text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  className={`px-3 py-1.5 min-h-[38px] rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-95 ${selectedCategory === cat ? 'bg-[#249144] text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
                   {cat}
                 </button>
@@ -366,11 +366,11 @@ export const DictionaryPage: React.FC = () => {
           {/* Pagination Controls */}
           {totalPages > 1 && (
             <div className="flex flex-wrap items-center justify-between gap-3 pt-6 border-t border-slate-200">
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setCurrentPage(1)}
                   disabled={currentPage === 1}
-                  className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold"
+                  className="p-2 min-h-[40px] min-w-[40px] rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold flex items-center justify-center cursor-pointer active:scale-95"
                   title="First Page"
                   aria-label="First Page"
                 >
@@ -379,7 +379,7 @@ export const DictionaryPage: React.FC = () => {
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold flex items-center gap-1 px-3"
+                  className="p-2 min-h-[40px] rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold flex items-center gap-1 px-3 cursor-pointer active:scale-95"
                   aria-label="Previous Page"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -397,7 +397,7 @@ export const DictionaryPage: React.FC = () => {
                   value={currentPage}
                   onChange={(e) => setCurrentPage(Number(e.target.value))}
                   aria-label="Select page"
-                  className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-700 outline-none hover:border-[#249144] cursor-pointer"
+                  className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 min-h-[40px] text-xs font-bold text-slate-700 outline-none hover:border-[#249144] cursor-pointer"
                 >
                   {Array.from({ length: Math.min(totalPages, 50) }, (_, i) => i + 1).map(p => (
                     <option key={p} value={p}>Page {p}</option>
@@ -408,11 +408,11 @@ export const DictionaryPage: React.FC = () => {
                 </select>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold flex items-center gap-1 px-3"
+                  className="p-2 min-h-[40px] rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold flex items-center gap-1 px-3 cursor-pointer active:scale-95"
                   aria-label="Next Page"
                 >
                   <span>Next</span>
@@ -421,7 +421,7 @@ export const DictionaryPage: React.FC = () => {
                 <button
                   onClick={() => setCurrentPage(totalPages)}
                   disabled={currentPage === totalPages}
-                  className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold"
+                  className="p-2 min-h-[40px] min-w-[40px] rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold flex items-center justify-center cursor-pointer active:scale-95"
                   title="Last Page"
                   aria-label="Last Page"
                 >

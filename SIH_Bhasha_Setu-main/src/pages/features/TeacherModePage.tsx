@@ -282,28 +282,29 @@ export const TeacherModePage: React.FC = () => {
   const reviewCount = segments.filter(s => s.needsReview).length;
 
   return (
-    <div className="min-h-screen bg-[#F9F6F0] pt-24 pb-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#F9F6F0] pt-6 sm:pt-20 lg:pt-24 pb-16 px-3.5 sm:px-6 lg:px-8">
+      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
 
         {/* Top Classroom Bar */}
-        <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-700">
+            <div className="p-3 rounded-2xl bg-indigo-50 text-indigo-700 flex-shrink-0">
               <GraduationCap className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">TEACHER MODE</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">TEACHER MODE</h1>
               <p className="text-xs text-slate-500">Live classroom captions, lesson recording & automatic vocabulary extractor.</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200 text-xs">
-              <span className="font-bold text-slate-500">Teacher:</span>
+          <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2.5">
+            <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 p-1.5 sm:p-2 rounded-2xl border border-slate-200 text-xs flex-1 sm:flex-initial">
+              <span className="font-bold text-slate-500 pl-1">Teacher:</span>
               <select
                 value={sourceLang}
                 onChange={e => { setSourceLang(e.target.value); setGuardrailNotice(null); }}
-                className="font-bold text-slate-800 bg-white px-2 py-1 rounded-lg border border-slate-200 outline-none cursor-pointer"
+                aria-label="Teacher speaking language"
+                className="font-bold text-slate-800 bg-white px-2.5 py-1.5 min-h-[38px] rounded-xl border border-slate-200 outline-none cursor-pointer text-xs"
               >
                 {SUPPORTED_LANGUAGES.map(l => (
                   <option key={`t-${l.id}`} value={l.code}>
@@ -312,13 +313,14 @@ export const TeacherModePage: React.FC = () => {
                 ))}
               </select>
 
-              <span className="text-slate-300">→</span>
+              <span className="text-slate-300 px-0.5">→</span>
 
               <span className="font-bold text-slate-500">Captions:</span>
               <select
                 value={targetLang}
                 onChange={e => setTargetLang(e.target.value)}
-                className="font-bold text-slate-800 bg-white px-2 py-1 rounded-lg border border-slate-200 outline-none cursor-pointer"
+                aria-label="Classroom captions language"
+                className="font-bold text-slate-800 bg-white px-2.5 py-1.5 min-h-[38px] rounded-xl border border-slate-200 outline-none cursor-pointer text-xs"
               >
                 {SUPPORTED_LANGUAGES.map(l => (
                   <option key={`c-${l.id}`} value={l.code}>
@@ -329,7 +331,7 @@ export const TeacherModePage: React.FC = () => {
             </div>
 
             {/* Timer Pill */}
-            <div className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-indigo-50 text-indigo-900 font-mono font-bold text-xs border border-indigo-100">
+            <div className="flex items-center gap-1.5 px-3 py-2 min-h-[38px] rounded-2xl bg-indigo-50 text-indigo-900 font-mono font-bold text-xs border border-indigo-100 flex-shrink-0">
               <Clock className="w-3.5 h-3.5" />
               <span>{Math.floor(lessonSeconds / 60).toString().padStart(2, '0')}:{(lessonSeconds % 60).toString().padStart(2, '0')}</span>
             </div>

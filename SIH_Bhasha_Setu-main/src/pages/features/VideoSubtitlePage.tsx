@@ -350,7 +350,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isProcessing}
-                className="shrink-0 px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition disabled:opacity-50"
+                className="shrink-0 px-4 py-2.5 min-h-[44px] bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition disabled:opacity-50 cursor-pointer active:scale-95"
               >
                 Choose File
               </button>
@@ -363,7 +363,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
               <button
                 type="button"
                 onClick={handleClearFile}
-                className="shrink-0 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 text-xs font-medium rounded-md transition"
+                className="shrink-0 px-3 py-2 min-h-[44px] bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 text-xs font-medium rounded-xl transition cursor-pointer"
               >
                 Clear
               </button>
@@ -403,7 +403,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     }}
                     disabled={isProcessing}
                     aria-label="Source audio mode"
-                    className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-8 py-2.5 text-xs sm:text-sm font-medium text-slate-700 outline-none hover:border-slate-300 focus:border-[#249144] focus:ring-1 focus:ring-[#249144]/20 transition cursor-pointer appearance-none"
+                    className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-8 py-2.5 min-h-[44px] text-xs sm:text-sm font-medium text-slate-700 outline-none hover:border-slate-300 focus:border-[#249144] focus:ring-1 focus:ring-[#249144]/20 transition cursor-pointer appearance-none"
                   >
                     <option value="auto">Auto Detect</option>
                     <option value="song_lyrics">🎵 Song / Lyrics (Singing-Aware)</option>
@@ -429,7 +429,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                     onChange={(e) => setTargetLang(e.target.value)}
                     disabled={isProcessing}
                     aria-label="Target tribal language"
-                    className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-8 py-2.5 text-xs sm:text-sm font-medium text-slate-700 outline-none hover:border-slate-300 focus:border-[#249144] focus:ring-1 focus:ring-[#249144]/20 transition cursor-pointer appearance-none"
+                    className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-8 py-2.5 min-h-[44px] text-xs sm:text-sm font-medium text-slate-700 outline-none hover:border-slate-300 focus:border-[#249144] focus:ring-1 focus:ring-[#249144]/20 transition cursor-pointer appearance-none"
                   >
                     <option value="sat">Santali</option>
                     <option value="hin">Hindi</option>
@@ -459,7 +459,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             <button
               onClick={handleStartSubtitling}
               disabled={isProcessing || !selectedFile}
-              className={`px-6 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${
+              className={`w-full sm:w-auto px-6 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all ${
                 isProcessing
                   ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                   : selectedFile

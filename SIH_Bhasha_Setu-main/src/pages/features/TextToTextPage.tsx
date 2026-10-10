@@ -350,19 +350,51 @@ export const TextToTextPage: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setShowDemoMode(true)}
-              className="px-2.5 py-1 rounded-full bg-green-50 border border-green-200 text-[#249144] text-[11px] font-bold flex items-center gap-1 cursor-pointer active:scale-95"
+              className="px-2.5 py-1.5 rounded-full bg-green-50 border border-green-200 text-[#249144] text-[11px] font-bold flex items-center gap-1 cursor-pointer active:scale-95 min-h-[36px]"
             >
               <Sparkles className="w-3 h-3" />
               <span>Demo</span>
             </button>
             <button
               onClick={() => setShowPacksModal(true)}
-              className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[11px] font-semibold flex items-center gap-1 cursor-pointer active:scale-95"
+              className="px-2.5 py-1.5 rounded-full bg-slate-100 text-slate-700 text-[11px] font-semibold flex items-center gap-1 cursor-pointer active:scale-95 min-h-[36px]"
             >
               <Package className="w-3 h-3 text-[#249144]" />
               <span>Packs</span>
             </button>
           </div>
+        </div>
+
+        {/* Mobile Quick Action Pills Row (md:hidden) */}
+        <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-2 mb-2 hide-scrollbar">
+          <button
+            onClick={() => setShowOfflineChallenge(true)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-300 text-amber-900 text-[11px] font-bold whitespace-nowrap active:scale-95 min-h-[36px]"
+          >
+            <Zap className="w-3 h-3 text-amber-600" />
+            <span>Test Offline</span>
+          </button>
+          <button
+            onClick={() => setShowDatasetQuality(true)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800 text-[11px] font-semibold whitespace-nowrap active:scale-95 min-h-[36px]"
+          >
+            <BarChart3 className="w-3 h-3 text-blue-600" />
+            <span>Dataset (6,780)</span>
+          </button>
+          <button
+            onClick={() => setShowHumanEval(true)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-purple-50 border border-purple-200 text-purple-800 text-[11px] font-semibold whitespace-nowrap active:scale-95 min-h-[36px]"
+          >
+            <UserCheck className="w-3 h-3 text-purple-600" />
+            <span>Linguist Review</span>
+          </button>
+          <button
+            onClick={() => setShowSystemHealth(true)}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-300 text-slate-800 text-[11px] font-semibold whitespace-nowrap active:scale-95 min-h-[36px]"
+          >
+            <Activity className="w-3 h-3 text-emerald-700" />
+            <span>Health</span>
+          </button>
         </div>
 
         {/* Desktop Detailed Marketing Header Title (hidden on mobile) */}
@@ -474,7 +506,7 @@ export const TextToTextPage: React.FC = () => {
                   value={sourceLang}
                   onChange={(e) => setSourceLang(e.target.value as SupportedLanguage)}
                   aria-label="Select source language"
-                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-bold text-slate-800 outline-none hover:border-[#249144] transition shadow-2xs cursor-pointer truncate"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 min-h-[44px] text-xs sm:text-sm font-bold text-slate-800 outline-none hover:border-[#249144] transition shadow-2xs cursor-pointer truncate"
                 >
                   {SUPPORTED_LANGUAGE_LIST.map(lang => (
                     <option key={lang.id} value={lang.id}>
@@ -487,7 +519,8 @@ export const TextToTextPage: React.FC = () => {
               {/* Middle Swap Button */}
               <button
                 onClick={handleSwap}
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 bg-white hover:bg-green-50 hover:text-[#249144] active:scale-90 transition-all flex items-center justify-center text-slate-600 shadow-2xs flex-shrink-0 cursor-pointer"
+                aria-label="Swap source and target languages"
+                className="w-9 h-9 sm:w-10 sm:h-10 min-h-[44px] min-w-[44px] rounded-xl border border-slate-200 bg-white hover:bg-green-50 hover:text-[#249144] active:scale-90 transition-all flex items-center justify-center text-slate-600 shadow-2xs flex-shrink-0 cursor-pointer"
                 title="Swap source and target languages"
               >
                 <ArrowLeftRight className="w-4 h-4" />
@@ -499,7 +532,7 @@ export const TextToTextPage: React.FC = () => {
                   value={targetLang}
                   onChange={(e) => setTargetLang(e.target.value as SupportedLanguage)}
                   aria-label="Select target language"
-                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-bold text-slate-800 outline-none hover:border-[#249144] transition shadow-2xs cursor-pointer truncate"
+                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-2 min-h-[44px] text-xs sm:text-sm font-bold text-slate-800 outline-none hover:border-[#249144] transition shadow-2xs cursor-pointer truncate"
                 >
                   {SUPPORTED_LANGUAGE_LIST.map(lang => (
                     <option key={lang.id} value={lang.id}>

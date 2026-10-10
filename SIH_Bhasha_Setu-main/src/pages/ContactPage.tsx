@@ -25,12 +25,12 @@ export const ContactPage: React.FC = () => {
   };
 
   return (
-    <section className="min-h-screen bg-[#F9F6F0] pt-28 pb-20 px-4 sm:px-6 lg:px-8">
+    <section className="min-h-screen bg-[#F9F6F0] pt-16 sm:pt-24 pb-16 sm:pb-20 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         
         {/* Header */}
-        <div className="w-full py-6 flex flex-col items-center text-center">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-green-50 border border-[#d1ead4] text-xs font-bold text-[#14532d] mb-3">
+        <div className="w-full py-4 sm:py-6 flex flex-col items-center text-center">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-green-50 border border-[#d1ead4] text-xs font-bold text-[#14532d] mb-3 shadow-2xs animate-float-1">
             <Mail className="w-3.5 h-3.5 text-[#249144]" /> Community Engagement & Support
           </div>
           <h1 className="domine-bold text-3xl sm:text-4xl md:text-5xl font-semibold leading-snug text-gray-900">

@@ -7,19 +7,21 @@ interface FeatureCardProps {
   description: string;
   link: string;
   badgeIllustration: React.ReactNode;
+  floatAnimation?: string;
 }
 
 const FeatureCard: React.FC<FeatureCardProps> = ({
   title,
   description,
   link,
-  badgeIllustration
+  badgeIllustration,
+  floatAnimation = 'animate-float-1'
 }) => {
   return (
-    <div className="bg-white rounded-[22px] border border-[#D5E8D5] shadow-[0_2px_12px_-2px_rgba(35,139,69,0.04)] hover:shadow-[0_6px_20px_-2px_rgba(35,139,69,0.08)] hover:border-[#238B45]/60 transition-all duration-300 p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6 sm:gap-7 group">
+    <div className="bg-white rounded-[22px] border border-[#D5E8D5] shadow-[0_2px_12px_-2px_rgba(35,139,69,0.04)] hover:shadow-[0_8px_24px_-2px_rgba(35,139,69,0.1)] hover:border-[#238B45]/70 transition-all duration-300 p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6 sm:gap-7 group">
       
       {/* Left: Illustrated Disc with Botanical Foliage & Scanner Brackets */}
-      <div className="relative flex-shrink-0 w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center">
+      <div className={`relative flex-shrink-0 w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center ${floatAnimation}`}>
         {/* Soft Organic Green Disc */}
         <div className="absolute inset-1 bg-[#EAF5EA] rounded-full scale-95 group-hover:scale-100 transition-transform duration-300" />
         
@@ -50,7 +52,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
       {/* Right: Title, Description & Green CTA Button */}
       <div className="flex flex-col justify-between flex-1 text-center sm:text-left h-full">
         <div>
-          <h3 className="text-xl font-bold text-[#17212B] tracking-tight">
+          <h3 className="text-xl font-bold text-[#17212B] tracking-tight group-hover:text-[#238B45] transition-colors">
             {title}
           </h3>
           <p className="text-xs sm:text-sm text-[#667085] mt-2 leading-relaxed font-sans">
@@ -61,7 +63,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
         <div className="mt-5">
           <Link
             to={link}
-            className="bg-[#238B45] hover:bg-[#176B3A] text-white px-5 py-2.5 text-xs sm:text-sm font-semibold rounded-[12px] inline-flex items-center gap-2 shadow-xs transition-all duration-200 group-hover:shadow cursor-pointer active:scale-98"
+            className="bg-[#238B45] hover:bg-[#176B3A] text-white px-5 py-2.5 text-xs sm:text-sm font-semibold rounded-[12px] inline-flex items-center gap-2 shadow-xs transition-all duration-200 group-hover:shadow cursor-pointer active:scale-98 min-h-[44px]"
           >
             <span>Start Translating</span>
             <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
@@ -75,10 +77,10 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
 
 export const FeaturesSection: React.FC = () => {
   return (
-    <section id="features" className="py-10 sm:py-20 lg:py-28 px-4 sm:px-6 lg:px-8 bg-[#F9F6F0] relative overflow-hidden">
+    <section id="features" className="py-12 sm:py-20 lg:py-28 px-4 sm:px-6 lg:px-8 bg-[#F9F6F0] relative overflow-hidden">
       
-      {/* Decorative Botanical Foliage in Background */}
-      <div className="absolute top-12 -left-8 w-56 h-56 pointer-events-none opacity-35 select-none -z-10">
+      {/* Decorative Botanical Foliage in Background with Slow Floating Animation */}
+      <div className="absolute top-12 -left-8 w-56 h-56 pointer-events-none opacity-35 select-none -z-10 animate-float-1">
         <svg viewBox="0 0 200 200" className="w-full h-full">
           <path d="M 60 140 Q 20 80, 40 20 Q 90 60, 60 140 Z" fill="#8ca68c" />
           <path d="M 80 120 Q 50 60, 100 20 Q 110 80, 80 120 Z" fill="#238B45" />
@@ -88,7 +90,7 @@ export const FeaturesSection: React.FC = () => {
         </svg>
       </div>
 
-      <div className="absolute top-12 -right-8 w-56 h-56 pointer-events-none opacity-35 select-none -z-10">
+      <div className="absolute top-12 -right-8 w-56 h-56 pointer-events-none opacity-35 select-none -z-10 animate-float-2">
         <svg viewBox="0 0 200 200" className="w-full h-full">
           <path d="M 140 140 Q 180 80, 160 20 Q 110 60, 140 140 Z" fill="#8ca68c" />
           <path d="M 120 120 Q 150 60, 100 20 Q 90 80, 120 120 Z" fill="#238B45" />
@@ -102,7 +104,7 @@ export const FeaturesSection: React.FC = () => {
       <div className="max-w-4xl mx-auto flex flex-col items-center text-center mb-8 sm:mb-14 relative z-10">
         
         {/* Open Book Icon in Circular Green Disc with Foliage */}
-        <div className="relative mb-3 flex items-center justify-center">
+        <div className="relative mb-3 flex items-center justify-center animate-float-3">
           <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#EAF5EA] border border-[#D5E8D5] flex items-center justify-center shadow-xs">
             <BookOpen className="w-6 h-6 sm:w-7 sm:h-7 text-[#238B45]" />
           </div>
@@ -153,7 +155,7 @@ export const FeaturesSection: React.FC = () => {
       </div>
 
       {/* Mobile-Only App Services Grid (md:hidden) */}
-      <div className="md:hidden max-w-6xl mx-auto grid grid-cols-2 gap-2.5 mb-8">
+      <div className="md:hidden max-w-6xl mx-auto grid grid-cols-1 xs:grid-cols-2 gap-3 mb-8">
         {[
           { title: "Text Translation", sub: "Bidirectional AI engine", link: "/features/text-to-text", icon: <Languages className="w-5 h-5 text-[#238B45]" />, bg: "bg-emerald-50" },
           { title: "Camera OCR", sub: "Scan tribal manuscripts", link: "/features/ocr", icon: <ScanText className="w-5 h-5 text-amber-600" />, bg: "bg-amber-50" },
@@ -167,17 +169,17 @@ export const FeaturesSection: React.FC = () => {
           <Link
             key={feat.title}
             to={feat.link}
-            className="p-3 bg-white rounded-2xl border border-[#D5E8D5] shadow-2xs hover:shadow-xs flex flex-col justify-between gap-2.5 active:scale-95 transition"
+            className="p-3.5 bg-white rounded-2xl border border-[#D5E8D5] shadow-2xs hover:shadow-xs flex flex-col justify-between gap-3 active:scale-95 transition min-h-[104px]"
           >
             <div className="flex items-center justify-between">
-              <div className={`w-8 h-8 rounded-xl ${feat.bg} flex items-center justify-center`}>
+              <div className={`w-9 h-9 rounded-xl ${feat.bg} flex items-center justify-center`}>
                 {feat.icon}
               </div>
               <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
             </div>
             <div>
               <h3 className="text-xs font-bold text-slate-800 tracking-tight leading-snug">{feat.title}</h3>
-              <p className="text-[10px] text-slate-500 leading-tight mt-0.5">{feat.sub}</p>
+              <p className="text-[11px] text-slate-500 leading-tight mt-0.5">{feat.sub}</p>
             </div>
           </Link>
         ))}
@@ -191,6 +193,7 @@ export const FeaturesSection: React.FC = () => {
           title="Text to Text Translation"
           description="Instantly translate written text between languages with our AI-powered translation technology."
           link="/features/text-to-text"
+          floatAnimation="animate-float-1"
           badgeIllustration={
             <svg viewBox="0 0 80 80" className="w-full h-full">
               {/* Corner brackets */}
@@ -215,6 +218,7 @@ export const FeaturesSection: React.FC = () => {
           title="OCR"
           description="Extract and translate text from images or documents."
           link="/features/ocr"
+          floatAnimation="animate-float-2"
           badgeIllustration={
             <svg viewBox="0 0 80 80" className="w-full h-full">
               <path d="M 14 26 L 14 16 L 24 16" fill="none" stroke="#238B45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
@@ -236,6 +240,7 @@ export const FeaturesSection: React.FC = () => {
           title="Speech to Text"
           description="Convert spoken tribal dialects into accurate transcribed text in real-time."
           link="/features/speech-to-text"
+          floatAnimation="animate-float-3"
           badgeIllustration={
             <svg viewBox="0 0 80 80" className="w-full h-full">
               <path d="M 14 26 L 14 16 L 24 16" fill="none" stroke="#238B45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
@@ -257,6 +262,7 @@ export const FeaturesSection: React.FC = () => {
           title="Voice to Voice"
           description="Real-time two-way voice conversation translation in indigenous dialects."
           link="/features/speech-to-speech"
+          floatAnimation="animate-float-4"
           badgeIllustration={
             <svg viewBox="0 0 80 80" className="w-full h-full">
               <path d="M 14 26 L 14 16 L 24 16" fill="none" stroke="#238B45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
@@ -279,6 +285,7 @@ export const FeaturesSection: React.FC = () => {
           title="Text to Speech"
           description="Convert written tribal literature into natural-sounding neural speech."
           link="/features/text-to-speech"
+          floatAnimation="animate-float-1"
           badgeIllustration={
             <svg viewBox="0 0 80 80" className="w-full h-full">
               <path d="M 14 26 L 14 16 L 24 16" fill="none" stroke="#238B45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
@@ -299,6 +306,7 @@ export const FeaturesSection: React.FC = () => {
           title="Video Subtitle"
           description="Neural video subtitling for educational and government broadcasts."
           link="/features/video-subtitle"
+          floatAnimation="animate-float-2"
           badgeIllustration={
             <svg viewBox="0 0 80 80" className="w-full h-full">
               <path d="M 14 26 L 14 16 L 24 16" fill="none" stroke="#238B45" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />

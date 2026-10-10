@@ -176,7 +176,7 @@ export const TextToSpeechPage: React.FC = () => {
 
         {/* Screen Header */}
         <div className="w-full py-2 flex flex-col items-center text-center">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-green-50 border border-[#d1ead4] text-xs font-bold text-[#14532d] mb-2.5 shadow-2xs">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-green-50 border border-[#d1ead4] text-xs font-bold text-[#14532d] mb-2.5 shadow-2xs animate-float-1">
             <Sparkles className="w-3.5 h-3.5 text-[#249144]" /> Phonetic Speech Synthesis (Web Speech API)
           </div>
           <h1 className="domine-bold text-3xl sm:text-4xl font-semibold leading-tight text-gray-900">
@@ -249,7 +249,7 @@ export const TextToSpeechPage: React.FC = () => {
                     key={idx}
                     type="button"
                     onClick={() => handleSelectPreset(preset.text)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-2 min-h-[38px] rounded-xl border text-xs font-medium transition shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#249144]/20 cursor-pointer touch-manipulation ${
+                    className={`inline-flex items-center gap-1.5 px-3.5 py-2 min-h-[42px] rounded-xl border text-xs font-medium transition shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#249144]/20 cursor-pointer touch-manipulation active:scale-95 ${
                       isSelected
                         ? 'border-[#249144] bg-green-50 text-[#14532d] font-semibold ring-1 ring-[#249144]/30'
                         : 'bg-slate-50 border-slate-200/80 hover:border-[#249144] hover:bg-green-50/60 hover:text-[#249144] text-slate-700'

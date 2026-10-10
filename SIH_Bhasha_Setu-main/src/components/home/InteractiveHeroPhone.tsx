@@ -119,7 +119,7 @@ export const InteractiveHeroPhone: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full max-w-[320px] sm:max-w-[340px] md:max-w-[360px] aspect-[9/18.5] mx-auto select-none">
+    <div className="relative w-full max-w-[290px] xs:max-w-[320px] sm:max-w-[340px] md:max-w-[360px] aspect-[9/18.5] mx-auto select-none">
       
       {/* Outer Phone Hardware Frame */}
       <div className="relative w-full h-full bg-[#0A0F1D] rounded-[48px] p-2.5 sm:p-3 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.35),0_0_0_1px_rgba(255,255,255,0.12)] border-2 border-slate-800 transition-all duration-300 hover:shadow-[0_30px_70px_-15px_rgba(35,139,69,0.2)]">
@@ -276,7 +276,7 @@ export const InteractiveHeroPhone: React.FC = () => {
               type="button"
               onClick={() => handleTranslate()}
               disabled={isTranslating}
-              className="w-full bg-[#176B3A] hover:bg-[#11522c] active:bg-[#0c3c20] text-white py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs transition active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
+              className="w-full bg-[#176B3A] hover:bg-[#11522c] active:bg-[#0c3c20] text-white py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs transition active:scale-98 cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px]"
             >
               {isTranslating ? (
                 <span>Translating...</span>
