@@ -66,31 +66,44 @@ export class TTSVoiceRouter {
       return { voice: null, voiceLang: code === 'hin' ? 'hi-IN' : 'en-IN' };
     }
 
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    // Filter local voices when offline to prevent silent stalls from Google/Cloud-only voices
+    const candidateVoices = isOffline
+      ? (voices.filter(v => v.localService) .length > 0 ? voices.filter(v => v.localService) : voices)
+      : voices;
+
     // 1. Hindi
     if (code === 'hin' || code === 'hindi' || code === 'hi') {
-      const exactHindi = voices.find(v => v.lang === 'hi-IN') ||
+      const exactHindi = candidateVoices.find(v => v.lang === 'hi-IN') ||
+                         candidateVoices.find(v => v.lang.toLowerCase().startsWith('hi')) ||
                          voices.find(v => v.lang.toLowerCase().startsWith('hi'));
       if (exactHindi) {
         return { voice: exactHindi, voiceLang: exactHindi.lang };
       }
       // Hindi fallback: If no Hindi voice installed on system, use Indian English voice
-      const indianEng = voices.find(v => v.lang === 'en-IN') ||
+      const indianEng = candidateVoices.find(v => v.lang === 'en-IN') ||
+                        candidateVoices.find(v => v.lang.toLowerCase().startsWith('en')) ||
                         voices.find(v => v.lang.toLowerCase().startsWith('en'));
-      return { voice: indianEng || voices[0], voiceLang: indianEng ? indianEng.lang : 'en-US' };
+      return { voice: indianEng || candidateVoices[0] || voices[0], voiceLang: indianEng ? indianEng.lang : 'en-US' };
     }
 
     // 2. English
     if (code === 'eng' || code === 'english' || code === 'en') {
-      const indianEng = voices.find(v => v.lang === 'en-IN') ||
+      const indianEng = candidateVoices.find(v => v.lang === 'en-IN') ||
+                        candidateVoices.find(v => v.lang.toLowerCase().startsWith('en')) ||
                         voices.find(v => v.lang.toLowerCase().startsWith('en'));
-      return { voice: indianEng || voices[0], voiceLang: indianEng ? indianEng.lang : 'en-US' };
+      return { voice: indianEng || candidateVoices[0] || voices[0], voiceLang: indianEng ? indianEng.lang : 'en-US' };
     }
 
     // 3. Tribal Languages (Santali, Mundari, Ho): Phonetic Indian Acoustic Route
     // Prefer Indian English voice for natural cadence, then Hindi voice
-    const tribalVoice = voices.find(v => v.lang === 'en-IN') ||
-                        voices.find(v => v.lang === 'hi-IN' || v.lang.toLowerCase().startsWith('hi')) ||
-                        voices.find(v => v.lang.toLowerCase().startsWith('en')) ||
+    const tribalVoice = candidateVoices.find(v => v.lang === 'en-IN') ||
+                        candidateVoices.find(v => v.lang === 'hi-IN' || v.lang.toLowerCase().startsWith('hi')) ||
+                        candidateVoices.find(v => v.lang.toLowerCase().startsWith('en')) ||
+                        voices.find(v => v.lang === 'en-IN') ||
+                        voices.find(v => v.lang.toLowerCase().startsWith('hi')) ||
+                        candidateVoices[0] ||
                         voices[0];
 
     return {

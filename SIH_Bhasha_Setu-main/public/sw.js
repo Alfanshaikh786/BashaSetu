@@ -1,5 +1,5 @@
-// Bhasha Setu Progressive Web App (PWA) Service Worker — Enhanced Offline-First V4
-const CACHE_NAME = 'bhasha-setu-pwa-v4';
+// Bhasha Setu Progressive Web App (PWA) Service Worker — Enhanced Offline-First V5 (upgraded from bhasha-setu-pwa-v3)
+const CACHE_NAME = 'bhasha-setu-pwa-v5';
 
 const PRECACHE_ASSETS = [
   '/',
@@ -10,22 +10,25 @@ const PRECACHE_ASSETS = [
   '/icon-192.png',
   '/icon-512.png',
   '/sql-wasm.wasm',
-  '/data/translations.db'
+  '/sql-wasm-browser.wasm',
+  '/data/translations.db',
+  '/data/model_manifest.json'
 ];
 
 // Install event: cache core static app shell + icons + SQLite WASM binary + translations.db
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Use Promise.allSettled so an optional resource failure doesn't block PWA install
       return Promise.allSettled(
-        PRECACHE_ASSETS.map(asset => cache.add(asset).catch(e => console.warn(`[SW] Precache notice for ${asset}:`, e)))
+        PRECACHE_ASSETS.map((asset) =>
+          cache.add(asset).catch((e) => console.warn(`[SW] Precache notice for ${asset}:`, e))
+        )
       );
     }).then(() => self.skipWaiting())
   );
 });
 
-// Activate event: clean outdated caches safely
+// Activate event: clean outdated caches safely and take control
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -41,19 +44,23 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event: Cache-First for critical offline binary assets (.wasm, .db) & stale-while-revalidate for others
+// Fetch event: Cache-First for critical offline binary assets & JS/CSS chunks, Stale-While-Revalidate for others
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  // Never intercept localhost/development requests
-  const hostname = self.location.hostname;
-  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') {
+  const url = new URL(event.request.url);
+
+  // Skip Vite dev server internal live-reload & HMR requests
+  if (
+    url.pathname.startsWith('/@vite') ||
+    url.pathname.startsWith('/@fs') ||
+    url.pathname.startsWith('/@id') ||
+    url.pathname.includes('__vite_ping')
+  ) {
     return;
   }
 
-  const url = new URL(event.request.url);
-
-  // 1. Navigation requests: Network-First with cache fallback (prevents stale HTML pointing to outdated bundle hashes)
+  // 1. Navigation requests: Network-First with cache fallback to /index.html (SPA offline routing)
   if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
     event.respondWith(
       fetch(event.request)
@@ -65,14 +72,20 @@ self.addEventListener('fetch', (event) => {
           return networkRes;
         })
         .catch(() => {
-          return caches.match('/index.html') || caches.match('/');
+          return caches.match('/index.html').then((cached) => {
+            return cached || caches.match('/');
+          });
         })
     );
     return;
   }
 
-  // 2. High-priority offline binary assets: Cache-first strategy
-  if (url.pathname.endsWith('.wasm') || url.pathname.includes('translations.db')) {
+  // 2. High-priority offline binary & data assets (.wasm, .db, .json manifests): Cache-first
+  if (
+    url.pathname.endsWith('.wasm') ||
+    url.pathname.includes('translations.db') ||
+    url.pathname.includes('model_manifest.json')
+  ) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
         if (cached) return cached;
@@ -88,7 +101,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Static assets: Stale-while-revalidate
+  // 3. Static scripts & styles (/assets/*, fonts, images): Cache-first with background revalidation
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        const fetchPromise = fetch(event.request)
+          .then((networkRes) => {
+            if (networkRes && networkRes.status === 200) {
+              const clone = networkRes.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            }
+            return networkRes;
+          })
+          .catch(() => cached);
+
+        return cached || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // 4. General static assets: Stale-while-revalidate
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)

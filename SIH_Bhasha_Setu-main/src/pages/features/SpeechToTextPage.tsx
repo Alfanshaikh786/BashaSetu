@@ -275,10 +275,12 @@ export const SpeechToTextPage: React.FC = () => {
       console.warn('Audio monitor start error:', e);
     }
 
-    // --- Santali with backend available: Use Neural IndicConformer WebSocket ---
-    if (sourceLang === 'sat' && asrStatus?.status === 'ready') {
+    // --- Neural ASR Backend (Offline Capable on Port 5000: Faster-Whisper + IndicConformer) ---
+    const supportedByBackend = ['sat', 'hin', 'hi', 'eng', 'en'].includes(sourceLang.toLowerCase());
+    if (supportedByBackend && asrStatus?.status === 'ready') {
       try {
         const streamer = new MicrophoneStreamer({
+          lang: sourceLang,
           onInterim: (text: string) => {
             setInterimText(text);
           },
@@ -300,7 +302,19 @@ export const SpeechToTextPage: React.FC = () => {
       }
     }
 
-    // --- Browser Native Speech Recognition ---
+    // Check if network is offline and backend is not ready
+    if (!navigator.onLine && asrStatus?.status !== 'ready') {
+      if (audioMonitorRef.current) {
+        audioMonitorRef.current.stop();
+        audioMonitorRef.current = null;
+      }
+      setErrorMessage(
+        '⚠️ Offline Mode Active: The browser Web Speech API requires an internet connection (Google Cloud). To transcribe 100% offline on your device, start the local Bhasha Setu neural engine by running "python server/main.py" in your terminal!'
+      );
+      return;
+    }
+
+    // --- Browser Native Speech Recognition Fallback ---
     const win = window as unknown as { webkitSpeechRecognition?: any; SpeechRecognition?: any };
     const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
 
@@ -379,6 +393,14 @@ export const SpeechToTextPage: React.FC = () => {
 
       recognition.onerror = (e: any) => {
         if (e.error === 'no-speech' || e.error === 'aborted') {
+          return;
+        }
+        if (e.error === 'network' || !navigator.onLine) {
+          isRecordingRef.current = false;
+          setIsRecording(false);
+          setErrorMessage(
+            '⚠️ Offline Connection Notice: The browser\'s built-in Web Speech API requires an internet connection (Google Cloud). To transcribe 100% offline, launch the local Bhasha Setu offline backend (run "python server/main.py") or upload an audio file.'
+          );
           return;
         }
         console.warn('Speech recognition notice:', e.error);

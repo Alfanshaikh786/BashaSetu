@@ -210,7 +210,14 @@ export const VideoSubtitlePage: React.FC = () => {
 
     } catch (err: any) {
       setIsProcessing(false);
-      setErrorMessage(err.message || 'Failed to submit video subtitle job.');
+      const isNet = err?.message?.includes('fetch') || err?.message?.includes('Network') || (typeof navigator !== 'undefined' && !navigator.onLine);
+      if (isNet) {
+        setErrorMessage(
+          '⚡ Offline Engine Notice: Local video subtitling & translation runs 100% offline via local Faster-Whisper & FFmpeg on port 5000. Please launch the local backend by running "python server/main.py" in your terminal to process video completely offline with zero internet!'
+        );
+      } else {
+        setErrorMessage(err.message || 'Failed to submit video subtitle job.');
+      }
     }
   };
 

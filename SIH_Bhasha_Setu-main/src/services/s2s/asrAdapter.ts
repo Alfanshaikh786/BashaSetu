@@ -136,6 +136,16 @@ export class S2SASRAdapter {
     S2STurnLogger.log(turnId, 'MIC_REQUEST', { sourceLang });
     mobileS2SLog('MIC_REQUEST', { turnId, sourceLang });
 
+    // When offline, attempt local neural streaming ASR directly first
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      try {
+        await this.startLocalStreamingASR(turnId, sourceLang);
+        return;
+      } catch {
+        // Fall back to browser speech handler if local neural engine not initialized
+      }
+    }
+
     // Both Person A and Person B use the browser Web Speech recognition engine
     // ensuring identical, zero-latency, real-time speech reflection for both speakers.
     this.startBrowserSpeech(sourceLang, turnId);
@@ -799,6 +809,14 @@ export class S2SASRAdapter {
             turnId
           );
           dispatchFinal('language_not_supported');
+        } else if (e.error === 'network') {
+          mobileS2SLog('ASR_OFFLINE_NETWORK', { turnId });
+          this.emitError(
+            'NETWORK_OFFLINE',
+            'Browser Speech Recognition is offline. To enable 100% offline speech recognition, please start the local Bhasha Setu backend ("python server/main.py").',
+            turnId
+          );
+          dispatchFinal('network_offline');
         } else {
           this.emitError('ASR_ERROR', `Speech recognition notice: ${e.error}`, turnId);
           dispatchFinal('generic_error');

@@ -255,26 +255,30 @@ export class MicrophoneStreamer {
   private mediaStream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
   private processor: ScriptProcessorNode | null = null;
+  private lang: string = 'sat';
   private onInterim: (text: string) => void;
   private onFinal: (segment: ASRSegment) => void;
   private onError: (err: string) => void;
 
   constructor(options: {
+    lang?: string;
     onInterim: (text: string) => void;
     onFinal: (segment: ASRSegment) => void;
     onError: (err: string) => void;
   }) {
+    this.lang = options.lang || 'sat';
     this.onInterim = options.onInterim;
     this.onFinal = options.onFinal;
     this.onError = options.onError;
   }
 
   async start(): Promise<void> {
-    // 1. Establish WebSocket connection
+    // 1. Establish WebSocket connection with selected language
     try {
-      this.ws = new WebSocket(ASR_WS_URL);
+      const sep = ASR_WS_URL.includes('?') ? '&' : '?';
+      this.ws = new WebSocket(`${ASR_WS_URL}${sep}lang=${encodeURIComponent(this.lang)}&sample_rate=16000`);
     } catch (e: any) {
-      this.onError('Unable to connect to Santali speech recognition service. Please ensure the local neural engine is running on port 5000.');
+      this.onError('Unable to connect to offline speech recognition service. Please ensure the local neural engine is running on port 5000.');
       return;
     }
 

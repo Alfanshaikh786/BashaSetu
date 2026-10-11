@@ -37,6 +37,8 @@ export const OfflineChallengeModal: React.FC<OfflineChallengeModalProps> = ({ is
   const [isTranslating, setIsTranslating] = useState<boolean>(false);
   const [testResult, setTestResult] = useState<TranslationResult | null>(null);
   const [measuredLatency, setMeasuredLatency] = useState<number | null>(null);
+  const [isPrecaching, setIsPrecaching] = useState<boolean>(false);
+  const [precacheNotice, setPrecacheNotice] = useState<string | null>(null);
 
   // Monitor real physical network status
   useEffect(() => {
@@ -51,6 +53,24 @@ export const OfflineChallengeModal: React.FC<OfflineChallengeModalProps> = ({ is
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  const handlePrecacheAssets = async () => {
+    setIsPrecaching(true);
+    setPrecacheNotice(null);
+    try {
+      const { precacheAllOfflineAssets } = await import('../../services/offlineReadyService');
+      const res = await precacheAllOfflineAssets();
+      if (res.success) {
+        setPrecacheNotice(`✅ All ${res.cachedCount} critical offline assets (App shell, SQLite WASM, translations.db) cached in browser storage!`);
+      } else {
+        setPrecacheNotice(`Notice: ${res.errors.join(', ')}`);
+      }
+    } catch (err: any) {
+      setPrecacheNotice(`Failed to precache: ${err?.message || err}`);
+    } finally {
+      setIsPrecaching(false);
+    }
+  };
 
   const toggleSimulatedOffline = () => {
     const nextVal = !isSimulatedOffline;
@@ -161,6 +181,30 @@ export const OfflineChallengeModal: React.FC<OfflineChallengeModalProps> = ({ is
               <span className="text-[9px] text-slate-500">Zero cloud calls</span>
             </div>
 
+          </div>
+
+          {/* Precache Assets for Complete Offline Availability */}
+          <div className="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <Database className="w-4 h-4 text-emerald-700" />
+                <span className="font-bold text-slate-900 text-xs">PWA & Database Offline Cache</span>
+              </div>
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                Download and store all app modules, SQLite database (6,780+ entries), and WebAssembly binaries in your browser for 100% offline access.
+              </p>
+              {precacheNotice && (
+                <p className="text-[11px] font-semibold text-emerald-800 mt-1">{precacheNotice}</p>
+              )}
+            </div>
+            <button
+              onClick={handlePrecacheAssets}
+              disabled={isPrecaching}
+              className="px-3.5 py-1.5 rounded-xl font-bold text-xs bg-[#249144] text-white hover:bg-[#1d7537] transition cursor-pointer flex items-center gap-1.5 shadow-xs flex-shrink-0 disabled:opacity-50"
+            >
+              <Package className="w-3.5 h-3.5" />
+              <span>{isPrecaching ? 'Caching Assets...' : 'Precache Offline Pack'}</span>
+            </button>
           </div>
 
           {/* Interactive Simulation Toggle */}

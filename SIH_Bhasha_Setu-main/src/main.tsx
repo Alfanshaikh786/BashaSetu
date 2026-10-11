@@ -10,27 +10,19 @@ window.addEventListener('vite:preloadError', (event) => {
   window.location.reload();
 });
 
-// PWA Service Worker management
-const isDev = import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
+// PWA Service Worker management for offline capabilities
 if ('serviceWorker' in navigator) {
-  if (isDev) {
-    // In development/localhost, unregister any active service worker and clear stale caches to ensure fresh code
-    navigator.serviceWorker.getRegistrations().then((registrations) => {
-      for (const registration of registrations) {
-        registration.unregister();
-      }
-    });
-    if ('caches' in window) {
-      caches.keys().then((keys) => {
-        keys.forEach((key) => caches.delete(key));
-      });
-    }
-  } else if (import.meta.env.PROD) {
+  // Register service worker in production builds, previews, or when offline mode is enabled
+  if (import.meta.env.PROD || window.location.search.includes('offline=true') || window.location.search.includes('pwa=true')) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch((err) => {
-        console.warn('PWA Service Worker registration note:', err);
-      });
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((reg) => {
+          console.info('✅ Bhasha Setu PWA Service Worker active (100% Offline Capable):', reg.scope);
+        })
+        .catch((err) => {
+          console.warn('PWA Service Worker registration note:', err);
+        });
     });
   }
 }

@@ -30,25 +30,35 @@ export async function getCachedWorker(
     return existing.worker;
   }
 
-  // Create new worker with logger
-  const worker = await createWorker(normalizedLang, 1, {
-    logger: (m) => {
-      if (m.status === 'recognizing text' && onLoggerProgress) {
-        onLoggerProgress(m.progress || 0, 'Recognizing text...');
-      } else if (onLoggerProgress && m.status) {
-        onLoggerProgress(m.progress || 0, m.status);
+  // Create new worker with logger and offline resilience
+  try {
+    const worker = await createWorker(normalizedLang, 1, {
+      logger: (m) => {
+        if (m.status === 'recognizing text' && onLoggerProgress) {
+          onLoggerProgress(m.progress || 0, 'Recognizing text...');
+        } else if (onLoggerProgress && m.status) {
+          onLoggerProgress(m.progress || 0, m.status);
+        }
       }
+    });
+
+    workerCache.set(normalizedLang, {
+      worker,
+      lang: normalizedLang,
+      isBusy: false,
+      lastUsed: Date.now()
+    });
+
+    return worker;
+  } catch (err: any) {
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    if (isOffline || err?.message?.includes('fetch') || err?.message?.includes('NetworkError')) {
+      throw new Error(
+        `OCR Engine Offline Notice: The OCR language model (${normalizedLang}) has not yet been cached in browser storage. Please connect to the internet once to load the model; thereafter, OCR will operate 100% offline.`
+      );
     }
-  });
-
-  workerCache.set(normalizedLang, {
-    worker,
-    lang: normalizedLang,
-    isBusy: false,
-    lastUsed: Date.now()
-  });
-
-  return worker;
+    throw err;
+  }
 }
 
 /**

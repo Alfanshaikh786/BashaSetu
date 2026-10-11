@@ -80,6 +80,70 @@ export async function checkOfflineReadiness(): Promise<OfflineStatus> {
   return cachedStatus;
 }
 
+export async function precacheAllOfflineAssets(): Promise<{ success: boolean; cachedCount: number; errors: string[] }> {
+  if (typeof window === 'undefined' || !('caches' in window)) {
+    return { success: false, cachedCount: 0, errors: ['Cache Storage API not supported in this browser.'] };
+  }
+
+  const CACHE_NAME = 'bhasha-setu-pwa-v5';
+  const CRITICAL_ASSETS = [
+    '/',
+    '/index.html',
+    '/manifest.json',
+    '/favicon.svg',
+    '/apple-touch-icon.png',
+    '/icon-192.png',
+    '/icon-512.png',
+    '/sql-wasm.wasm',
+    '/sql-wasm-browser.wasm',
+    '/data/translations.db',
+    '/data/model_manifest.json'
+  ];
+
+  const errors: string[] = [];
+  let cachedCount = 0;
+
+  try {
+    const cache = await caches.open(CACHE_NAME);
+
+    // Register service worker if not already registered
+    if ('serviceWorker' in navigator && !navigator.serviceWorker.controller) {
+      try {
+        await navigator.serviceWorker.register('/sw.js');
+      } catch (swErr: any) {
+        console.warn('SW registration during precache:', swErr);
+      }
+    }
+
+    for (const url of CRITICAL_ASSETS) {
+      try {
+        const response = await fetch(url, { cache: 'reload' });
+        if (response.ok) {
+          await cache.put(url, response);
+          cachedCount++;
+        } else {
+          errors.push(`Failed to fetch ${url}: HTTP ${response.status}`);
+        }
+      } catch (err: any) {
+        errors.push(`Error caching ${url}: ${err?.message || err}`);
+      }
+    }
+
+    await checkOfflineReadiness();
+    return {
+      success: cachedCount > 0,
+      cachedCount,
+      errors
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      cachedCount,
+      errors: [err?.message || 'Failed to open cache storage']
+    };
+  }
+}
+
 export function getCachedOfflineStatus(): OfflineStatus {
   return cachedStatus;
 }
