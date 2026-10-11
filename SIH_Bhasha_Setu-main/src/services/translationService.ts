@@ -1014,12 +1014,12 @@ function synthesizeOfflineConstituents(
     method: 'dataset',
     evidence: {
       id: `ev-off-${Date.now()}`,
-      sourceType: 'dataset',
+      sourceType: 'local_dataset',
       providerName: 'On-Device Offline Engine (SQLite & Dataset)',
       verificationStatus: 'verified',
       isOffline: true,
       internetRequired: false,
-      matchCategory: 'constituent_dataset_synthesis',
+      matchCategory: 'fuzzy_lexicon',
       targetScript: scriptInfo.scriptName,
       timestamp: Date.now(),
       notes: '100% on-device offline translation assembled via local verified dictionary.'
