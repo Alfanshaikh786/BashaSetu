@@ -16,13 +16,21 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# Ensure UTF-8 output
-reconfigure_stdout = getattr(sys.stdout, "reconfigure", None)
-if callable(reconfigure_stdout):
-    reconfigure_stdout(encoding="utf-8")
+# Ensure UTF-8 output and prevent Windows charmap encoding crashes
+if sys.platform == "win32":
+    for stream in (sys.stdout, sys.stderr):
+        reconfig = getattr(stream, "reconfigure", None)
+        if callable(reconfig):
+            try:
+                reconfig(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
 
-# Load environment
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Load environment and configure search paths
+SERVER_DIR = Path(__file__).resolve().parent
+BASE_DIR = SERVER_DIR.parent
+if str(SERVER_DIR) not in sys.path:
+    sys.path.insert(0, str(SERVER_DIR))
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 env_path = BASE_DIR / '.env'
@@ -59,9 +67,9 @@ def check_pg_available() -> bool:
         conn = db_pool.getconn()
         db_pool.putconn(conn)
         pg_available = True
-        print(f"✅ Connected to PostgreSQL ({DB_NAME})")
+        print(f"[OK] Connected to PostgreSQL ({DB_NAME})")
     except Exception as e:
-        print(f"ℹ️ PostgreSQL not available ({e}). Using local SQLite database {SQLITE_DB_PATH.name}.")
+        print(f"[INFO] PostgreSQL not available ({e}). Using local SQLite database {SQLITE_DB_PATH.name}.")
         pg_available = False
         db_pool = None
     return pg_available
@@ -77,10 +85,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS: Allow all local origins, private networks, and web dev ports
+# CORS: Allow all local origins, LAN hotspot subnets (192.168.x.x, 10.x.x.x), and private mobile networks
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -96,26 +105,35 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Neural ASR Engine Router (Santali IndicConformer + Faster-Whisper)
 try:
-    from server.api.asr_routes import router as asr_api_router
+    try:
+        from server.api.asr_routes import router as asr_api_router
+    except ImportError:
+        from api.asr_routes import router as asr_api_router
     app.include_router(asr_api_router, prefix="/api/asr", tags=["Neural ASR"])
-    print("✅ Mounted Neural ASR router at /api/asr")
+    print("[OK] Mounted Neural ASR router at /api/asr")
 except Exception as asr_err:
-    print(f"⚠️ ASR router mount warning: {asr_err}")
+    print(f"[WARN] ASR router mount warning: {asr_err}")
 
 # Video Subtitle Engine Router
 try:
-    from server.api.video_routes import router as video_api_router
+    try:
+        from server.api.video_routes import router as video_api_router
+    except ImportError:
+        from api.video_routes import router as video_api_router
     app.include_router(video_api_router, prefix="/api/video", tags=["Video Subtitles"])
-    print("✅ Mounted Video Subtitles router at /api/video")
+    print("[OK] Mounted Video Subtitles router at /api/video")
 except Exception as video_err:
-    print(f"⚠️ Video Subtitles router mount warning: {video_err}")
+    print(f"[WARN] Video Subtitles router mount warning: {video_err}")
 
 # Multilingual Neural & Dataset Translation Engine (Santali, Mundari, Ho, Hindi, English)
 try:
-    from server.translation import translate_hindi_to_mundari, multilingual_engine
-    print("✅ Mounted Multilingual ML Engine (Santali, Mundari, Ho, Hindi, English)")
+    try:
+        from server.translation import translate_hindi_to_mundari, multilingual_engine
+    except ImportError:
+        from translation import translate_hindi_to_mundari, multilingual_engine
+    print("[OK] Mounted Multilingual ML Engine (Santali, Mundari, Ho, Hindi, English)")
 except Exception as t_err:
-    print(f"⚠️ Multilingual translation engine mount warning: {t_err}")
+    print(f"[WARN] Multilingual translation engine mount warning: {t_err}")
     translate_hindi_to_mundari = None
     multilingual_engine = None
 
@@ -140,6 +158,7 @@ class TranslateRequest(BaseModel):
     text: str
     source_lang: str
     target_lang: str
+    domain: Optional[str] = "General"
 
 class HindiToMundariRequest(BaseModel):
     text: str
@@ -443,12 +462,12 @@ def translate_text(req: TranslateRequest):
     Direct SQL parallel query for exact or fuzzy match across all 5 supported languages.
     Fronted by in-memory cache for sub-millisecond repeated lookups.
     """
-    clean_text = req.text.strip()
+    clean_text = (req.text or "").strip()
     if not clean_text:
         return {"target_text": "", "roman": None, "confidence": 0, "row": None}
 
-    src_lang = req.source_lang.lower()
-    target_lang = req.target_lang.lower()
+    src_lang = (req.source_lang or "en").lower()
+    target_lang = (req.target_lang or "sat").lower()
     src_lang_id = LANG_MAP.get(src_lang, 1)
     target_lang_id = LANG_MAP.get(target_lang, 3)
     lower = clean_text.lower().replace('?', '').replace('!', '').replace('.', '').replace(',', '').strip()
@@ -752,12 +771,15 @@ def api_translate_neural(req: TranslateRequest):
     if not clean_text:
         return {"target_text": "", "roman": None, "confidence": 0, "status": "error"}
 
+    source_lang = (req.source_lang or "en").strip()
+    target_lang = (req.target_lang or "sat").strip()
+
     if multilingual_engine is not None:
-        return multilingual_engine.translate(clean_text, req.source_lang, req.target_lang)
+        return multilingual_engine.translate(clean_text, source_lang, target_lang)
 
     return {"target_text": clean_text, "roman": None, "confidence": 0, "status": "error", "warning": "ML Engine unavailable."}
 
 if __name__ == '__main__':
     import uvicorn
-    print(f"🚀 Starting Bhasha Setu Local Backend on http://127.0.0.1:{PORT}...")
-    uvicorn.run("main:app", host="127.0.0.1", port=PORT, reload=False)
+    print(f"[LAUNCH] Starting Bhasha Setu Local Backend on http://127.0.0.1:{PORT}...")
+    uvicorn.run(app, host="127.0.0.1", port=PORT)
