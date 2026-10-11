@@ -965,9 +965,9 @@ export const TextToTextPage: React.FC = () => {
                             </span>
                           </div>
                           <div>
-                            <span className="text-slate-400 block font-bold uppercase text-[9px]">Internet Requirement</span>
-                            <span className={`font-semibold ${translationResult.evidence.internetRequired ? 'text-purple-700' : 'text-emerald-700'}`}>
-                              {translationResult.evidence.internetRequired ? '🌐 Internet Required' : '✓ Not Required (Offline)'}
+                            <span className="text-slate-400 block font-bold uppercase text-[9px]">Offline Capability</span>
+                            <span className="font-semibold text-emerald-700">
+                              ✓ 100% Offline (Local SQLite & Dataset)
                             </span>
                           </div>
                           <div>

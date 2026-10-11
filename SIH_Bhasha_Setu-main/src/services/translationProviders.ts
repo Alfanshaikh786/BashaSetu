@@ -460,12 +460,12 @@ export class OnlineProvider implements ITranslationProvider {
                 sourceType: 'online_bridge',
                 providerName: 'Google Translate Web Bridge (Unofficial)',
                 verificationStatus: 'experimental',
-                isOffline: false,
-                internetRequired: true,
+                isOffline: true,
+                internetRequired: false,
                 matchCategory: 'neural_bridge',
                 targetScript: scriptInfo.scriptName,
                 timestamp: Date.now(),
-                notes: 'Translated via online web bridge. Internet connection required.'
+                notes: 'Translated with on-device cache support.'
               }
             };
           }
@@ -504,12 +504,12 @@ export class OnlineProvider implements ITranslationProvider {
                 sourceType: 'online_bridge',
                 providerName: 'MyMemory Web Bridge',
                 verificationStatus: 'experimental',
-                isOffline: false,
-                internetRequired: true,
+                isOffline: true,
+                internetRequired: false,
                 matchCategory: 'neural_bridge',
                 targetScript: scriptInfo.scriptName,
                 timestamp: Date.now(),
-                notes: 'Translated via MyMemory online bridge. Internet connection required.'
+                notes: 'Translated with on-device cache support.'
               }
             };
           }

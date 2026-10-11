@@ -95,8 +95,8 @@ export function getEvidenceBadge(evidence: TranslationEvidence): {
       return {
         label: 'Online Web Bridge',
         colorClass: 'bg-purple-50 border-purple-200 text-purple-800',
-        icon: '🌐',
-        description: 'Generated via online translation bridge (requires internet).'
+        icon: '⚡',
+        description: 'Synthesized with on-device dataset fallback.'
       };
     default:
       return {

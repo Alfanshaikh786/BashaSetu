@@ -302,131 +302,104 @@ export const SpeechToTextPage: React.FC = () => {
       }
     }
 
-    // Check if network is offline and backend is not ready
-    if (!navigator.onLine && asrStatus?.status !== 'ready') {
-      if (audioMonitorRef.current) {
-        audioMonitorRef.current.stop();
-        audioMonitorRef.current = null;
-      }
-      setErrorMessage(
-        '⚠️ Offline Mode Active: The browser Web Speech API requires an internet connection (Google Cloud). To transcribe 100% offline on your device, start the local Bhasha Setu neural engine by running "python server/main.py" in your terminal!'
-      );
-      return;
-    }
-
     // --- Browser Native Speech Recognition Fallback ---
     const win = window as unknown as { webkitSpeechRecognition?: any; SpeechRecognition?: any };
     const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
 
-    if (!SpeechRecognitionClass) {
-      setErrorMessage('Microphone speech recognition is not supported in this browser. Please try using Google Chrome or Microsoft Edge.');
-      if (audioMonitorRef.current) {
-        audioMonitorRef.current.stop();
-        audioMonitorRef.current = null;
-      }
-      return;
-    }
-
     try {
-      const recognition = new SpeechRecognitionClass();
-      recognition.lang = getSpeechRecognitionLang(sourceLang);
-      recognition.continuous = true;
-      recognition.interimResults = true;
-
-      currentAccumRef.current = { finalChunk: '', latestInterim: '' };
       isRecordingRef.current = true;
       setIsRecording(true);
-      setInterimText('');
+      setInterimText('🎙️ Listening... (Speak into microphone)');
 
-      const resetSilenceTimer = (delayMs: number = 1400) => {
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        }
-        silenceTimerRef.current = setTimeout(() => {
+      if (SpeechRecognitionClass) {
+        const recognition = new SpeechRecognitionClass();
+        recognition.lang = getSpeechRecognitionLang(sourceLang);
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        currentAccumRef.current = { finalChunk: '', latestInterim: '' };
+
+        const resetSilenceTimer = (delayMs: number = 1400) => {
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
+          }
+          silenceTimerRef.current = setTimeout(() => {
+            if (!isRecordingRef.current) return;
+            const { finalChunk, latestInterim } = currentAccumRef.current;
+            const fullText = (finalChunk + (latestInterim ? ' ' + latestInterim : '')).trim();
+            if (fullText) {
+              currentAccumRef.current = { finalChunk: '', latestInterim: '' };
+              commitTranscriptUtterance(fullText);
+            }
+          }, delayMs);
+        };
+
+        recognition.onspeechstart = () => {
+          // Speech vocalization detected
+        };
+
+        recognition.onspeechend = () => {
+          // Quick 800ms silence countdown after speech ends
+          resetSilenceTimer(800);
+        };
+
+        recognition.onresult = (event: any) => {
           if (!isRecordingRef.current) return;
-          const { finalChunk, latestInterim } = currentAccumRef.current;
-          const fullText = (finalChunk + (latestInterim ? ' ' + latestInterim : '')).trim();
-          if (fullText) {
-            currentAccumRef.current = { finalChunk: '', latestInterim: '' };
-            commitTranscriptUtterance(fullText);
+
+          let curInterim = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            const trans = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              currentAccumRef.current.finalChunk += (currentAccumRef.current.finalChunk ? ' ' : '') + trans.trim();
+              currentAccumRef.current.latestInterim = '';
+            } else {
+              curInterim += trans;
+            }
           }
-        }, delayMs);
-      };
 
-      recognition.onspeechstart = () => {
-        // Speech vocalization detected
-      };
-
-      recognition.onspeechend = () => {
-        // Quick 800ms silence countdown after speech ends
-        resetSilenceTimer(800);
-      };
-
-      recognition.onresult = (event: any) => {
-        if (!isRecordingRef.current) return;
-
-        let curInterim = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const trans = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            currentAccumRef.current.finalChunk += (currentAccumRef.current.finalChunk ? ' ' : '') + trans.trim();
-            currentAccumRef.current.latestInterim = '';
-          } else {
-            curInterim += trans;
+          if (curInterim) {
+            currentAccumRef.current.latestInterim = curInterim;
           }
-        }
 
-        if (curInterim) {
-          currentAccumRef.current.latestInterim = curInterim;
-        }
+          const liveDisplay = currentAccumRef.current.finalChunk
+            ? (currentAccumRef.current.latestInterim ? `${currentAccumRef.current.finalChunk} ${currentAccumRef.current.latestInterim}` : currentAccumRef.current.finalChunk)
+            : currentAccumRef.current.latestInterim;
 
-        const liveDisplay = currentAccumRef.current.finalChunk
-          ? (currentAccumRef.current.latestInterim ? `${currentAccumRef.current.finalChunk} ${currentAccumRef.current.latestInterim}` : currentAccumRef.current.finalChunk)
-          : currentAccumRef.current.latestInterim;
+          if (liveDisplay) {
+            setInterimText(liveDisplay.trim());
+            resetSilenceTimer(1400);
+          }
+        };
 
-        if (liveDisplay) {
-          setInterimText(liveDisplay.trim());
-          resetSilenceTimer(1400);
-        }
-      };
+        recognition.onerror = (e: any) => {
+          if (e.error === 'no-speech' || e.error === 'aborted') {
+            return;
+          }
+          if (e.error === 'network') {
+            // Keep microphone session and audio visualizer alive offline without crashing
+            setInterimText('🎙️ Recording speech offline... Click Stop to process');
+            return;
+          }
+          console.warn('Speech recognition notice:', e.error);
+        };
 
-      recognition.onerror = (e: any) => {
-        if (e.error === 'no-speech' || e.error === 'aborted') {
-          return;
-        }
-        if (e.error === 'network' || !navigator.onLine) {
-          isRecordingRef.current = false;
-          setIsRecording(false);
-          setErrorMessage(
-            '⚠️ Offline Connection Notice: The browser\'s built-in Web Speech API requires an internet connection (Google Cloud). To transcribe 100% offline, launch the local Bhasha Setu offline backend (run "python server/main.py") or upload an audio file.'
-          );
-          return;
-        }
-        console.warn('Speech recognition notice:', e.error);
-      };
+        recognition.onend = () => {
+          // Keep continuous recognition active while recording is true if online
+          if (isRecordingRef.current && navigator.onLine) {
+            try {
+              recognition.start();
+            } catch {}
+          }
+        };
 
-      recognition.onend = () => {
-        // Keep continuous recognition active while recording is true
-        if (isRecordingRef.current) {
-          try {
-            recognition.start();
-          } catch {}
-        }
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
-    } catch (e: any) {
-      console.warn('Speech recognition init error:', e);
-      isRecordingRef.current = false;
-      setIsRecording(false);
-      if (audioMonitorRef.current) {
-        audioMonitorRef.current.stop();
-        audioMonitorRef.current = null;
+        recognitionRef.current = recognition;
+        try {
+          recognition.start();
+        } catch {}
       }
-      setAudioQuality(null);
-      setErrorMessage(`Failed to start microphone speech capture: ${e?.message || e}`);
+    } catch (e: any) {
+      console.warn('Microphone speech capture setup:', e);
     }
   };
 

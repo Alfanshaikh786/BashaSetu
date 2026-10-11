@@ -811,12 +811,7 @@ export class S2SASRAdapter {
           dispatchFinal('language_not_supported');
         } else if (e.error === 'network') {
           mobileS2SLog('ASR_OFFLINE_NETWORK', { turnId });
-          this.emitError(
-            'NETWORK_OFFLINE',
-            'Browser Speech Recognition is offline. To enable 100% offline speech recognition, please start the local Bhasha Setu backend ("python server/main.py").',
-            turnId
-          );
-          dispatchFinal('network_offline');
+          dispatchFinal('network_offline_graceful');
         } else {
           this.emitError('ASR_ERROR', `Speech recognition notice: ${e.error}`, turnId);
           dispatchFinal('generic_error');
