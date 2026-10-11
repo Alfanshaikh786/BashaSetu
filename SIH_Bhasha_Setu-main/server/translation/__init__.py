@@ -12,8 +12,12 @@ from .mt5_fallback import translate_with_mt5
 from .model_loader import get_model_and_tokenizer
 from .config import DATASET_PATH, MODEL_SOURCE, MT5_MODE, TASK_PROMPT_TEMPLATE
 
+from .multilingual_engine import multilingual_engine, MultilingualOfflineEngine
+
 __all__ = [
     "translate_hindi_to_mundari",
+    "multilingual_engine",
+    "MultilingualOfflineEngine",
     "get_dataset_matcher",
     "normalize_hindi_text",
     "romanize_mundari",

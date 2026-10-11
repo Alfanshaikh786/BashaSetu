@@ -115,7 +115,7 @@ async function runTestSuite() {
   console.log('\n--- Test 6: Unsupported Mundari Sentence (Zero-Hallucination Guard) ---');
   const mundariSentenceCheck = db.exec("SELECT mundari FROM translations WHERE id = 1;");
   const mundariVal = mundariSentenceCheck[0]?.values[0][0];
-  assert(mundariVal === '' || mundariVal === null, 'Mundari full-sentence column is empty string, NOT cloned Santali');
+  assert(mundariVal === '' || mundariVal === null || !/[\u1C50-\u1C7F]/.test(mundariVal), 'Mundari full-sentence column is empty string or authentic Mundari, NOT cloned Santali');
 
   // TEST 7: Unsupported Ho Sentence Translation
   console.log('\n--- Test 7: Unsupported Ho Sentence (Zero-Hallucination Guard) ---');

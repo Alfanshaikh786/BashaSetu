@@ -110,13 +110,14 @@ try:
 except Exception as video_err:
     print(f"⚠️ Video Subtitles router mount warning: {video_err}")
 
-# Hindi -> Mundari Neural & Dataset Translation Engine
+# Multilingual Neural & Dataset Translation Engine (Santali, Mundari, Ho, Hindi, English)
 try:
-    from server.translation import translate_hindi_to_mundari
-    print("✅ Mounted Hindi -> Mundari Translation Engine (Level 1: Dataset, Level 2: mT5 Fallback)")
+    from server.translation import translate_hindi_to_mundari, multilingual_engine
+    print("✅ Mounted Multilingual ML Engine (Santali, Mundari, Ho, Hindi, English)")
 except Exception as t_err:
-    print(f"⚠️ Hindi -> Mundari translation engine mount warning: {t_err}")
+    print(f"⚠️ Multilingual translation engine mount warning: {t_err}")
     translate_hindi_to_mundari = None
+    multilingual_engine = None
 
 # Language code normalization
 LANG_MAP = {
@@ -459,29 +460,31 @@ def translate_text(req: TranslateRequest):
     src_col = LANG_COL_MAP.get(src_lang, 'english')
     target_col = LANG_COL_MAP.get(target_lang, 'santali')
 
-    # Level 1 (Dataset) & Level 2 (mT5 Fallback) Hindi -> Mundari Delegation
-    if src_col == 'hindi' and target_col == 'mundari' and translate_hindi_to_mundari is not None:
-        h2m_res = translate_hindi_to_mundari(clean_text)
-        if h2m_res and h2m_res.get("status") == "success" and h2m_res.get("mundari"):
-            target_text = h2m_res["mundari"]
-            roman = h2m_res.get("mundari_roman")
-            is_ds = "dataset" in h2m_res.get("source", "")
+    # 1. Primary: Multilingual Offline ML Engine (Santali, Mundari, Ho, Hindi, English)
+    if multilingual_engine is not None:
+        ml_res = multilingual_engine.translate(clean_text, req.source_lang, req.target_lang)
+        if ml_res and ml_res.get("status") == "success" and ml_res.get("target_text") and ml_res.get("source") != "none":
+            target_text = ml_res["target_text"]
+            roman = ml_res.get("roman")
+            is_high = ml_res.get("confidence") == "high"
             res = {
                 "target_text": target_text,
                 "roman": roman,
-                "confidence": 0.99 if is_ds else 0.70,
-                "source": h2m_res.get("source"),
+                "confidence": 0.99 if is_high else 0.85,
+                "source": ml_res.get("source", "ml_engine"),
+                "provider": ml_res.get("provider", "Bhasha Setu Multilingual ML Engine"),
+                "is_offline": True,
                 "row": {
                     "id": 0,
-                    "english": "",
-                    "hindi": clean_text,
-                    "santali": "",
-                    "santali_roman": None,
-                    "ho": None,
-                    "mundari": target_text,
-                    "mundari_roman": roman,
+                    "english": clean_text if src_col == "english" else (target_text if target_col == "english" else ""),
+                    "hindi": clean_text if src_col == "hindi" else (target_text if target_col == "hindi" else ""),
+                    "santali": target_text if target_col == "santali" else "",
+                    "santali_roman": roman if target_col == "santali" else None,
+                    "ho": target_text if target_col == "ho" else None,
+                    "mundari": target_text if target_col == "mundari" else None,
+                    "mundari_roman": roman if target_col == "mundari" else None,
                     "category": "General",
-                    "verified": "Yes" if is_ds else "Experimental"
+                    "verified": "Yes" if is_high else "Neural ML Model"
                 }
             }
             if len(_translation_memory_cache) < 5000:
@@ -734,6 +737,25 @@ def api_translate_hindi_to_mundari(req: HindiToMundariRequest):
         raise HTTPException(status_code=400, detail=result.get("error", "Invalid input"))
     
     return result
+
+@app.post("/api/translate/neural")
+def api_translate_neural(req: TranslateRequest):
+    """
+    Multilingual Neural & Dataset ML Translation Endpoint:
+    Provides 100% offline neural translation across:
+    - English, Hindi -> Santali (Ol Chiki & Roman)
+    - English, Hindi -> Mundari (Devanagari & Roman)
+    - English, Hindi -> Ho (Devanagari & Roman)
+    - Reverse translations (Santali/Mundari/Ho -> English/Hindi)
+    """
+    clean_text = (req.text or "").strip()
+    if not clean_text:
+        return {"target_text": "", "roman": None, "confidence": 0, "status": "error"}
+
+    if multilingual_engine is not None:
+        return multilingual_engine.translate(clean_text, req.source_lang, req.target_lang)
+
+    return {"target_text": clean_text, "roman": None, "confidence": 0, "status": "error", "warning": "ML Engine unavailable."}
 
 if __name__ == '__main__':
     import uvicorn
