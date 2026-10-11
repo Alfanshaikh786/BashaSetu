@@ -976,8 +976,26 @@ function synthesizeOfflineConstituents(
       }
     }
 
-    // 2. Check Santali dataset lookup
-    const satEntry = lookupWord(cleanWord, sourceLang === 'hindi' ? 'hin' : 'eng');
+    // 2. Check Santali to English / Hindi direct mappings
+    if (sourceLang === 'santali') {
+      if (targetLang === 'english' && (SANTALI_WORDS_TO_EN[cleanWord] || SANTALI_WORDS_TO_EN[rawWord])) {
+        const enVal = SANTALI_WORDS_TO_EN[cleanWord] || SANTALI_WORDS_TO_EN[rawWord];
+        translatedWords.push(enVal);
+        romanWords.push(enVal);
+        recognizedCount++;
+        continue;
+      }
+      if (targetLang === 'hindi' && (SANTALI_WORDS_TO_HI[cleanWord] || SANTALI_WORDS_TO_HI[rawWord])) {
+        const hiVal = SANTALI_WORDS_TO_HI[cleanWord] || SANTALI_WORDS_TO_HI[rawWord];
+        translatedWords.push(hiVal);
+        romanWords.push(hiVal);
+        recognizedCount++;
+        continue;
+      }
+    }
+
+    // 3. Check Santali dataset lookup
+    const satEntry = lookupWord(cleanWord, sourceLang === 'hindi' ? 'hin' : sourceLang === 'santali' ? 'sat' : 'eng');
     if (satEntry) {
       if (targetLang === 'santali') {
         translatedWords.push(satEntry.sat);
@@ -996,7 +1014,7 @@ function synthesizeOfflineConstituents(
       continue;
     }
 
-    // 3. Fallback: preserve word token cleanly
+    // 4. Fallback: preserve word token cleanly
     translatedWords.push(rawWord);
     romanWords.push(rawWord);
   }
